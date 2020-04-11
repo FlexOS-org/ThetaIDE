@@ -1,2 +1,2 @@
 # ThetaIDE
-An open-source IDE, written in JavaScript.
+An open-source and fast IDE, written in JavaScript.
