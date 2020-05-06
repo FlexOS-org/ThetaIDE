@@ -5,10 +5,8 @@ var id;
 var hInstance;
 
 var MAX_TAGS = [];
-
 let CONTENT = "";
 let closeTag = true;
-
 let currentTokenType = "";
 
 function init(HInstance) {
@@ -26,7 +24,6 @@ function filter(array, value, bLowerCase) {
     }
     
     let originalValue = value;
-    
     if(bLowerCase){
         value = value.toLowerCase();
         for(i = 0; i < array.length; i++) {
@@ -69,10 +66,8 @@ function extractTagName(content, cursor) {
     }
     
     content = content.slice(nearestOpenBracket, content.length);
-    
     const spacePos = content.search(" ");
     content = content.substring(0, spacePos);
-    
     content = content.split(" ").join("");
     content = content.split("\n").join("");
     
@@ -99,8 +94,6 @@ function displayAutocomplete(arrayElements, arrayTypes) {
     });
 
     $("#_list").empty();
-    
-    
     for(i = 0; i < arrayElements.length; i++) {
         $("#_list").append('<div class="item" id="_' + i + '"><span class="span">' + arrayElements[i] + '</span><i class="' + arrayTypes[i] + '"></i></div>');
     }
@@ -126,16 +119,13 @@ $(document).ready(function() {
     }
     
     $(".CodeMirror").height($(window).height());
-    
     $(window).resize(function() {
         $(".CodeMirror").height($(window).height());
     });
-    
     hInstance.on("keyup", function(editor, event) {
         console.log(hInstance.getTokenAt(hInstance.getCursor()));
         
         if(hInstance.getModeAt(hInstance.getCursor()).name != "xml" && hInstance.getModeAt(hInstance.getCursor()).name != "javascript" && hInstance.getModeAt(hInstance.getCursor()).name != "css") { $("#_list").css("display", "none"); }
-        
         if(hInstance.getModeAt(hInstance.getCursor()).name == "xml") {
             let avaibleTags = [];
             let avaibleAtts = [];
@@ -152,7 +142,6 @@ $(document).ready(function() {
                 }
 
                 currentTokenType = "tag";
-                
                 let arrayTypes = [];
                 for(i = 0; i < avaibleTags.length; i++) {
                     arrayTypes[i] = "tag";
