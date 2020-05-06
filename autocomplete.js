@@ -5,8 +5,10 @@ var id;
 var hInstance;
 
 var MAX_TAGS = [];
+
 let CONTENT = "";
 let closeTag = true;
+
 let currentTokenType = "";
 
 function init(HInstance) {
@@ -24,6 +26,7 @@ function filter(array, value, bLowerCase) {
     }
     
     let originalValue = value;
+    
     if(bLowerCase){
         value = value.toLowerCase();
         for(i = 0; i < array.length; i++) {
@@ -66,8 +69,10 @@ function extractTagName(content, cursor) {
     }
     
     content = content.slice(nearestOpenBracket, content.length);
+    
     const spacePos = content.search(" ");
     content = content.substring(0, spacePos);
+    
     content = content.split(" ").join("");
     content = content.split("\n").join("");
     
@@ -94,8 +99,15 @@ function displayAutocomplete(arrayElements, arrayTypes) {
     });
 
     $("#_list").empty();
-    for(i = 0; i < arrayElements.length; i++) {
-        $("#_list").append('<div class="item" id="_' + i + '"><span class="span">' + arrayElements[i] + '</span><i class="' + arrayTypes[i] + '"></i></div>');
+    
+    if(currentTokenType == "atom") {
+        for(i = 0; i < arrayElements.length; i++) {
+            $("#_list").append('<div class="item" id="_' + i + '"><span class="span">' + arrayElements[i].split("&").join("&amp;").split("#").join("&#35;") + '<span class="span" style="position: absolute; left: 430px;">' + arrayElements[i] + '</span></span><i class="' + arrayTypes[i] + '"></i></div>');
+        }
+    } else {
+        for(i = 0; i < arrayElements.length; i++) {
+            $("#_list").append('<div class="item" id="_' + i + '"><span class="span">' + arrayElements[i] + '</span><i class="' + arrayTypes[i] + '"></i></div>');
+        }
     }
 }
 
@@ -119,17 +131,21 @@ $(document).ready(function() {
     }
     
     $(".CodeMirror").height($(window).height());
+    
     $(window).resize(function() {
         $(".CodeMirror").height($(window).height());
     });
+    
     hInstance.on("keyup", function(editor, event) {
         console.log(hInstance.getTokenAt(hInstance.getCursor()));
         
         if(hInstance.getModeAt(hInstance.getCursor()).name != "xml" && hInstance.getModeAt(hInstance.getCursor()).name != "javascript" && hInstance.getModeAt(hInstance.getCursor()).name != "css") { $("#_list").css("display", "none"); }
+        
         if(hInstance.getModeAt(hInstance.getCursor()).name == "xml") {
             let avaibleTags = [];
             let avaibleAtts = [];
             let avaibleStrs = [];
+            let avaibleAtms = [];
 
             if(hInstance.getTokenAt(hInstance.getCursor()).type == "tag") {
                 let cursor = hInstance.getCursor();
@@ -142,6 +158,7 @@ $(document).ready(function() {
                 }
 
                 currentTokenType = "tag";
+                
                 let arrayTypes = [];
                 for(i = 0; i < avaibleTags.length; i++) {
                     arrayTypes[i] = "tag";
@@ -180,7 +197,7 @@ $(document).ready(function() {
             
             if(hInstance.getTokenAt(hInstance.getCursor()).type == "string") {
                 let attributeName = extractAttributeName(hInstance.getValue(), hInstance.getCursor());
-                if(attributeName == "src" || attributeName == "href") {
+                if(attributeName == "src") {
                     let token = hInstance.getTokenAt(hInstance.getCursor());
                     let tokenString  = token.string.slice(1, token.string.length - 1);
                     
@@ -201,7 +218,25 @@ $(document).ready(function() {
                             existingFiles.push(file);
                         });
                         
-                        avaibleStrs = filter(existingFiles, fname, true);
+                        let filtredExistingFiles = [];
+                        
+                        if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "script") {
+                            for(i = 0; i < existingFiles.length; i++) {
+                                if(FileSystem.lstatSync(path + existingFiles[i]).isFile()) {
+                                    if(existingFiles[i].endsWith(".vbs") || existingFiles[i].endsWith(".vb") || existingFiles[i].endsWith(".cs") || existingFiles[i].endsWith(".coffee") || existingFiles[i].endsWith(".litcoffee") || existingFiles[i].endsWith(".js") || existingFiles[i].endsWith(".ts") || existingFiles[i].endsWith(".ls")) {
+                                        filtredExistingFiles.push(existingFiles[i]);
+                                    }
+                                } else {
+                                    filtredExistingFiles.push(existingFiles[i]);
+                                }
+                            }
+                        } else if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "iframe" || extractTagName(hInstance.getValue(), hInstance.getCursor()) == "embed") {
+                            for(i = 0; i < existingFiles.length; i++) {
+                                filtredExistingFiles.push(existingFiles[i]);
+                            }
+                        }
+                        
+                        avaibleStrs = filter(filtredExistingFiles, fname, true);
                         
                         let arrayTypes = [];
                         for(i = 0; i < avaibleStrs.length; i++) {
@@ -218,7 +253,155 @@ $(document).ready(function() {
                             existingFiles.push(file);
                         });
                         
-                        avaibleStrs = filter(existingFiles, tokenString, true);
+                        let filtredExistingFiles = [];
+                        
+                        if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "script") {
+                            for(i = 0; i < existingFiles.length; i++) {
+                                if(FileSystem.lstatSync(existingFiles[i]).isFile()) {
+                                    if(existingFiles[i].endsWith(".vbs") || existingFiles[i].endsWith(".vb") || existingFiles[i].endsWith(".cs") || existingFiles[i].endsWith(".coffee") || existingFiles[i].endsWith(".litcoffee") || existingFiles[i].endsWith(".js") || existingFiles[i].endsWith(".ts") || existingFiles[i].endsWith(".ls")) {
+                                        filtredExistingFiles.push(existingFiles[i]);
+                                    }
+                                } else {
+                                    filtredExistingFiles.push(existingFiles[i]);
+                                }
+                            }
+                        } else if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "iframe" || extractTagName(hInstance.getValue(), hInstance.getCursor()) == "embed") {
+                            for(i = 0; i < existingFiles.length; i++) {
+                                filtredExistingFiles.push(existingFiles[i]);
+                            }
+                        }
+                        
+                        avaibleStrs = filter(filtredExistingFiles, tokenString, true);
+                        
+                        let arrayTypes = [];
+                        for(i = 0; i < avaibleStrs.length; i++) {
+                            arrayTypes[i] = "string";
+                        }
+                        
+                        currentTokenType = "path";
+                        
+                        displayAutocomplete(avaibleStrs, arrayTypes);
+                    }
+                } else if(attributeName == "data") {
+                    let token = hInstance.getTokenAt(hInstance.getCursor());
+                    let tokenString  = token.string.slice(1, token.string.length - 1);
+                    
+                    if(tokenString.search("/") != -1 || tokenString.search(/\\/g) != -1) {
+                        let path     = "";
+                        let fname    = "";
+                        
+                        tokenString = tokenString.split("\\").join("/");
+                        
+                        if(tokenString.search("/") != -1) {
+                            path  = tokenString.substring(0, tokenString.lastIndexOf("/") + 1);
+                            fname = tokenString.slice(tokenString.lastIndexOf("/") + 1, tokenString.length);
+                        }
+                        
+                        let existingFiles = [];
+                        
+                        FileSystem.readdirSync(path).forEach(file => {
+                            existingFiles.push(file);
+                        });
+                        
+                        let filtredExistingFiles = [];
+                        
+                        if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "object") {
+                            for(i = 0; i < existingFiles.length; i++) {
+                                filtredExistingFiles.push(existingFiles[i]);
+                            }
+                        }
+                        
+                        avaibleStrs = filter(filtredExistingFiles, fname, true);
+                        
+                        let arrayTypes = [];
+                        for(i = 0; i < avaibleStrs.length; i++) {
+                            arrayTypes[i] = "string";
+                        }
+                        
+                        currentTokenType = "path";
+                        
+                        displayAutocomplete(avaibleStrs, arrayTypes);
+                    } else {
+                        let existingFiles = [];
+                        
+                        FileSystem.readdirSync("./").forEach(file => {
+                            existingFiles.push(file);
+                        });
+                        
+                        let filtredExistingFiles = [];
+                        
+                        if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "object") {
+                            for(i = 0; i < existingFiles.length; i++) {
+                                filtredExistingFiles.push(existingFiles[i]);
+                            }
+                        }
+                        
+                        avaibleStrs = filter(filtredExistingFiles, tokenString, true);
+                        
+                        let arrayTypes = [];
+                        for(i = 0; i < avaibleStrs.length; i++) {
+                            arrayTypes[i] = "string";
+                        }
+                        
+                        currentTokenType = "path";
+                        
+                        displayAutocomplete(avaibleStrs, arrayTypes);
+                    }
+                } else if(attributeName == "href") {
+                    let token = hInstance.getTokenAt(hInstance.getCursor());
+                    let tokenString  = token.string.slice(1, token.string.length - 1);
+                    
+                    if(tokenString.search("/") != -1 || tokenString.search(/\\/g) != -1) {
+                        let path     = "";
+                        let fname    = "";
+                        
+                        tokenString = tokenString.split("\\").join("/");
+                        
+                        if(tokenString.search("/") != -1) {
+                            path  = tokenString.substring(0, tokenString.lastIndexOf("/") + 1);
+                            fname = tokenString.slice(tokenString.lastIndexOf("/") + 1, tokenString.length);
+                        }
+                        
+                        let existingFiles = [];
+                        
+                        FileSystem.readdirSync(path).forEach(file => {
+                            existingFiles.push(file);
+                        });
+                        
+                        let filtredExistingFiles = [];
+                        
+                        if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "link") {
+                            for(i = 0; i < existingFiles.length; i++) {
+                                filtredExistingFiles.push(existingFiles[i]);
+                            }
+                        }
+                        
+                        avaibleStrs = filter(filtredExistingFiles, fname, true);
+                        
+                        let arrayTypes = [];
+                        for(i = 0; i < avaibleStrs.length; i++) {
+                            arrayTypes[i] = "string";
+                        }
+                        
+                        currentTokenType = "path";
+                        
+                        displayAutocomplete(avaibleStrs, arrayTypes);
+                    } else {
+                        let existingFiles = [];
+                        
+                        FileSystem.readdirSync("./").forEach(file => {
+                            existingFiles.push(file);
+                        });
+                        
+                        let filtredExistingFiles = [];
+                        
+                        if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "object") {
+                            for(i = 0; i < existingFiles.length; i++) {
+                                filtredExistingFiles.push(existingFiles[i]);
+                            }
+                        }
+                        
+                        avaibleStrs = filter(filtredExistingFiles, tokenString, true);
                         
                         let arrayTypes = [];
                         for(i = 0; i < avaibleStrs.length; i++) {
@@ -231,6 +414,21 @@ $(document).ready(function() {
                     }
                 }
             } if(avaibleStrs[0] == "") {
+                $("#_list").css("display", "none");
+            }
+            
+            if(hInstance.getTokenTypeAt(hInstance.getCursor()) == "error" && hInstance.getTokenAt(hInstance.getCursor()).string.charAt(0) == "&" || hInstance.getTokenTypeAt(hInstance.getCursor()) == "atom") {
+                let token = hInstance.getTokenAt(hInstance.getCursor());
+                avaibleAtms = filter(htmlAscii, token.string, true);
+                
+                let arrayTypes = [];
+                for(i = 0; i < avaibleAtms.length; i++) {
+                    arrayTypes[i] = "atom";
+                }
+                
+                currentTokenType = "atom";
+                displayAutocomplete(avaibleAtms, arrayTypes);
+            } if(avaibleAtms[0] == "") {
                 $("#_list").css("display", "none");
             }
 
@@ -529,6 +727,23 @@ $(document).ready(function() {
                     $("#_list").css("display", "none");
                     hInstance.focus();
                 }
+            } else if(currentTokenType == "atom") {
+                let token = hInstance.getTokenAt(hInstance.getCursor());
+                                
+                $("#_list").css("display", "none");
+                hInstance.focus();
+                
+                let text = clickedElement.innerText.substring(0, clickedElement.innerText.search(";") + 1);
+                
+                hInstance.replaceRange(
+                    text, {
+                        line: hInstance.getCursor().line, ch:token.start
+                    },
+                    {
+                        line:hInstance.getCursor().line , ch:token.end
+                    }
+                );
+                
             } else {
                 let token = hInstance.getTokenAt(hInstance.getCursor());
                 hInstance.replaceRange(
