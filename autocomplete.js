@@ -32,7 +32,6 @@ function filter(array, value, bLowerCase) {
     }
     
     let originalValue = value;
-    
     if(bLowerCase){
         value = value.toLowerCase();
         for(i = 0; i < array.length; i++) {
