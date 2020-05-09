@@ -15,6 +15,12 @@ function init(HInstance) {
     hInstance = HInstance;
 }
 
+function appendArrayToAnother(array1, array2) {
+    for(i = 0; i < array2.length; i++) {
+        array1.push(array2[i]);
+    }
+}
+
 function filter(array, value, bLowerCase) {
     let result = [];
     let begins = [];
@@ -125,6 +131,78 @@ function extractAttributeName(content, cursor) {
     return attName;
 }
 
+function extractMediaTypeFromLink(content, cursor) {
+    let cursorIndex        = hInstance.indexFromPos(cursor);
+    let mediaType          = "";
+    
+    for(d = cursorIndex; d > 0; d--) {
+        if(hInstance.getTokenTypeAt(hInstance.posFromIndex(d)) == "attribute" && hInstance.getTokenAt(hInstance.posFromIndex(d)).string == "rel") {
+            let string = hInstance.getTokenAt(hInstance.posFromIndex(hInstance.getTokenAt(hInstance.posFromIndex(d)).end + 2)).string;
+            return string;
+            break;
+        }
+    }
+}
+
+function hasTypeImageAttribute(content, cursor) {
+    let cursorIndex        = hInstance.indexFromPos(cursor);
+    let attName            = "";
+    
+    for(d = cursorIndex; d > 0; d--) {
+        if(hInstance.getTokenAt(hInstance.posFromIndex(d)).type == "attribute" && hInstance.getTokenAt(hInstance.posFromIndex(d)).string == "type") {
+            if(hInstance.getTokenAt(hInstance.posFromIndex(hInstance.getTokenAt(hInstance.posFromIndex(d)).end + 2)).string == '"image"') {
+                return true;
+                break;
+            }
+        }
+    }
+}
+
+function gatherAllIDs(content) {
+    /*let tokens = [];
+    let extendedTokens = [];
+    
+    for(i = 0; i < hInstance.lineCount(); i++) {
+        extendedTokens.length = 0;
+        extendedTokens = hInstance.getLineTokens(i);
+        appendArrayToAnother(tokens, extendedTokens);
+    }
+    
+    for(i = 0; i < tokens.length; i++) {
+        if(tokens[i].type != "attribute" && tokens[i].string.toLowerCase() != "id") {
+            tokens.splice(i, 1);
+        }
+    }
+    
+    let returnedIDs = [];
+    for(i = 0; i < tokens.length; i++) {
+        let foundTokenType = "";
+        for(j = tokens[i].end; j < hInstance.getValue().length; j++) {
+            if(hInstance.getTokenTypeAt(hInstance.posFromIndex(j)) == "string") {
+                returnedIDs.push(hInstance.getTokenAt(hInstance.posFromIndex(j)).string.split('"').join(""));
+                j = j + hInstance.getTokenAt(hInstance.posFromIndex(j)).string.length +  4;
+            }
+        }
+    }
+    
+    return returnedIDs;*/
+    
+    let tokens = [];
+    let extendedTokens = [];
+    
+    for(i = 0; i < hInstance.lineCount(); i++) {
+        extendedTokens.length = 0;
+        extendedTokens = hInstance.getLineTokens(i);
+        appendArrayToAnother(tokens, extendedTokens);
+    }
+    
+    for(i = 0; i < tokens.length; i++) {
+        if(tokens[i].type != "string") {
+            tokens.splice(i, 1);
+        }
+    }
+}
+
 $(document).ready(function() {
     for(i = 0; i < 500; i++) {
         MAX_TAGS.push(i);
@@ -137,6 +215,8 @@ $(document).ready(function() {
     });
     
     hInstance.on("keyup", function(editor, event) {
+        alert(gatherAllIDs(hInstance.getValue()));
+        
         console.log(hInstance.getTokenAt(hInstance.getCursor()));
         
         if(hInstance.getModeAt(hInstance.getCursor()).name != "xml" && hInstance.getModeAt(hInstance.getCursor()).name != "javascript" && hInstance.getModeAt(hInstance.getCursor()).name != "css") { $("#_list").css("display", "none"); }
@@ -230,9 +310,53 @@ $(document).ready(function() {
                                     filtredExistingFiles.push(existingFiles[i]);
                                 }
                             }
-                        } else if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "iframe" || extractTagName(hInstance.getValue(), hInstance.getCursor()) == "embed") {
+                        } else if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "iframe" || extractTagName(hInstance.getValue(), hInstance.getCursor()) == "embed" || extractTagName(hInstance.getValue(), hInstance.getCursor()) == "source") {
                             for(i = 0; i < existingFiles.length; i++) {
                                 filtredExistingFiles.push(existingFiles[i]);
+                            }
+                        } else if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "audio") {
+                            for(i = 0; i < existingFiles.length; i++) {
+                                if(FileSystem.lstatSync(path + existingFiles[i]).isFile()) {
+                                    if(existingFiles[i].endsWith(".wav") || existingFiles[i].endsWith(".mp3") || existingFiles[i].endsWith(".ogg")) {
+                                        filtredExistingFiles.push(existingFiles[i]);
+                                    }
+                                } else {
+                                    filtredExistingFiles.push(existingFiles[i]);
+                                }
+                            }
+                        } else if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "img") {
+                            for(i = 0; i < existingFiles.length; i++) {
+                                if(FileSystem.lstatSync(path + existingFiles[i]).isFile()) {
+                                    if(existingFiles[i].endsWith(".png") || existingFiles[i].endsWith(".bmp") || existingFiles[i].endsWith(".jpg") || existingFiles[i].endsWith(".ico")) {
+                                        filtredExistingFiles.push(existingFiles[i]);
+                                    }
+                                } else {
+                                    filtredExistingFiles.push(existingFiles[i]);
+                                }
+                            }
+                        } else if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "input" && hasTypeImageAttribute(hInstance.getValue(), hInstance.getCursor())) {
+                            for(i = 0; i < existingFiles.length; i++) {
+                                filtredExistingFiles.push(existingFiles[i]);
+                            }
+                        } else if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "track") {
+                            for(i = 0; i < existingFiles.length; i++) {
+                                if(FileSystem.lstatSync(path + existingFiles[i]).isFile()) {
+                                    if(existingFiles[i].endsWith(".vtt")) {
+                                        filtredExistingFiles.push(existingFiles[i]);
+                                    }
+                                } else {
+                                    filtredExistingFiles.push(existingFiles[i]);
+                                }
+                            }
+                        } else if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "video") {
+                            for(i = 0; i < existingFiles.length; i++) {
+                                if(FileSystem.lstatSync(path + existingFiles[i]).isFile()) {
+                                    if(existingFiles[i].endsWith(".wmv") || existingFiles[i].endsWith(".mp4") || existingFiles[i].endsWith(".avi") || existingFiles[i].endsWith(".mov")) {
+                                        filtredExistingFiles.push(existingFiles[i]);
+                                    }
+                                } else {
+                                    filtredExistingFiles.push(existingFiles[i]);
+                                }
                             }
                         }
                         
@@ -265,9 +389,53 @@ $(document).ready(function() {
                                     filtredExistingFiles.push(existingFiles[i]);
                                 }
                             }
-                        } else if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "iframe" || extractTagName(hInstance.getValue(), hInstance.getCursor()) == "embed") {
+                        } else if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "iframe" || extractTagName(hInstance.getValue(), hInstance.getCursor()) == "embed" || extractTagName(hInstance.getValue(), hInstance.getCursor()) == "source") {
                             for(i = 0; i < existingFiles.length; i++) {
                                 filtredExistingFiles.push(existingFiles[i]);
+                            }
+                        } else if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "audio") {
+                            for(i = 0; i < existingFiles.length; i++) {
+                                if(FileSystem.lstatSync(existingFiles[i]).isFile()) {
+                                    if(existingFiles[i].endsWith(".wav") || existingFiles[i].endsWith(".mp3") || existingFiles[i].endsWith(".ogg")) {
+                                        filtredExistingFiles.push(existingFiles[i]);
+                                    }
+                                } else {
+                                    filtredExistingFiles.push(existingFiles[i]);
+                                }
+                            }
+                        } else if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "img") {
+                            for(i = 0; i < existingFiles.length; i++) {
+                                if(FileSystem.lstatSync(existingFiles[i]).isFile()) {
+                                    if(existingFiles[i].endsWith(".png") || existingFiles[i].endsWith(".bmp") || existingFiles[i].endsWith(".jpg") || existingFiles[i].endsWith(".ico")) {
+                                        filtredExistingFiles.push(existingFiles[i]);
+                                    }
+                                } else {
+                                    filtredExistingFiles.push(existingFiles[i]);
+                                }
+                            }
+                        } else if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "input" && hasTypeImageAttribute(hInstance.getValue(), hInstance.getCursor())) {
+                            for(i = 0; i < existingFiles.length; i++) {
+                                filtredExistingFiles.push(existingFiles[i]);
+                            }
+                        } else if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "track") {
+                            for(i = 0; i < existingFiles.length; i++) {
+                                if(FileSystem.lstatSync(existingFiles[i]).isFile()) {
+                                    if(existingFiles[i].endsWith(".vtt")) {
+                                        filtredExistingFiles.push(existingFiles[i]);
+                                    }
+                                } else {
+                                    filtredExistingFiles.push(existingFiles[i]);
+                                }
+                            }
+                        } else if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "video") {
+                            for(i = 0; i < existingFiles.length; i++) {
+                                if(FileSystem.lstatSync(existingFiles[i]).isFile()) {
+                                    if(existingFiles[i].endsWith(".wmv") || existingFiles[i].endsWith(".mp4") || existingFiles[i].endsWith(".avi") || existingFiles[i].endsWith(".mov")) {
+                                        filtredExistingFiles.push(existingFiles[i]);
+                                    }
+                                } else {
+                                    filtredExistingFiles.push(existingFiles[i]);
+                                }
                             }
                         }
                         
@@ -369,12 +537,71 @@ $(document).ready(function() {
                         });
                         
                         let filtredExistingFiles = [];
-                        
-                        if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "link") {
+                        if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == 'link') {
+                            if(extractMediaTypeFromLink(hInstance.getValue(), hInstance.getCursor()) == '"stylesheet"') {
+                                for(i = 0; i < existingFiles.length; i++) {
+                                    if(FileSystem.lstatSync(path + existingFiles[i]).isFile()) {
+                                        if(existingFiles[i].endsWith(".css")) {
+                                            filtredExistingFiles.push(existingFiles[i]);
+                                        }
+                                    } else {
+                                        filtredExistingFiles.push(existingFiles[i]);
+                                    }
+                                }
+                            } else if(extractMediaTypeFromLink(hInstance.getValue(), hInstance.getCursor()) == '"alternate"') {
+                                for(i = 0; i < existingFiles.length; i++) {
+                                    filtredExistingFiles.push(existingFiles[i]);
+                                }
+                            } else if(extractMediaTypeFromLink(hInstance.getValue(), hInstance.getCursor()) == '"author"') {
+                                for(i = 0; i < existingFiles.length; i++) {
+                                    filtredExistingFiles.push(existingFiles[i]);
+                                }
+                            } else if(extractMediaTypeFromLink(hInstance.getValue(), hInstance.getCursor()) == '"help"') {
+                                for(i = 0; i < existingFiles.length; i++) {
+                                    if(FileSystem.lstatSync(path + existingFiles[i]).isFile()) {
+                                        if(existingFiles[i].endsWith(".html") || existingFiles[i].endsWith(".htm") || existingFiles[i].endsWith(".asp")) {
+                                            filtredExistingFiles.push(existingFiles[i]);
+                                        }
+                                    } else {
+                                        filtredExistingFiles.push(existingFiles[i]);
+                                    }
+                                }
+                            } else if(extractMediaTypeFromLink(hInstance.getValue(), hInstance.getCursor()) == '"icon"') {
+                                for(i = 0; i < existingFiles.length; i++) {
+                                    if(FileSystem.lstatSync(path + existingFiles[i]).isFile()) {
+                                        if(existingFiles[i].endsWith(".ico") || existingFiles[i].endsWith(".bmp") || existingFiles[i].endsWith(".png") || existingFiles[i].endsWith(".jpg")) {
+                                            filtredExistingFiles.push(existingFiles[i]);
+                                        }
+                                    } else {
+                                        filtredExistingFiles.push(existingFiles[i]);
+                                    }
+                                }
+                            } else if(extractMediaTypeFromLink(hInstance.getValue(), hInstance.getCursor()) == '"license"') {
+                                for(i = 0; i < existingFiles.length; i++) {
+                                    filtredExistingFiles.push(existingFiles[i]);
+                                }
+                            } else if(extractMediaTypeFromLink(hInstance.getValue(), hInstance.getCursor()) == '"help"') {
+                                for(i = 0; i < existingFiles.length; i++) {
+                                    if(FileSystem.lstatSync(path + existingFiles[i]).isFile()) {
+                                        if(existingFiles[i].endsWith(".html") || existingFiles[i].endsWith(".htm") || existingFiles[i].endsWith(".asp")) {
+                                            filtredExistingFiles.push(existingFiles[i]);
+                                        }
+                                    } else {
+                                        filtredExistingFiles.push(existingFiles[i]);
+                                    }
+                                }
+                            }
+                        } else if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "a") {
                             for(i = 0; i < existingFiles.length; i++) {
                                 filtredExistingFiles.push(existingFiles[i]);
                             }
                         }
+                        
+                        /*let sections = gatherAllIDs(hInstance.getValue());
+                        
+                        for(i = 0; i < sections.length; i++) {
+                            filtredExistingFiles.push(sections[i]);
+                        }*/
                         
                         avaibleStrs = filter(filtredExistingFiles, fname, true);
                         
@@ -394,10 +621,59 @@ $(document).ready(function() {
                         });
                         
                         let filtredExistingFiles = [];
-                        
-                        if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "object") {
-                            for(i = 0; i < existingFiles.length; i++) {
-                                filtredExistingFiles.push(existingFiles[i]);
+                        if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == 'link') {
+                            if(extractMediaTypeFromLink(hInstance.getValue(), hInstance.getCursor()) == '"stylesheet"') {
+                                for(i = 0; i < existingFiles.length; i++) {
+                                    if(FileSystem.lstatSync(existingFiles[i]).isFile()) {
+                                        if(existingFiles[i].endsWith(".css")) {
+                                            filtredExistingFiles.push(existingFiles[i]);
+                                        }
+                                    } else {
+                                        filtredExistingFiles.push(existingFiles[i]);
+                                    }
+                                }
+                            } else if(extractMediaTypeFromLink(hInstance.getValue(), hInstance.getCursor()) == '"alternate"') {
+                                for(i = 0; i < existingFiles.length; i++) {
+                                    filtredExistingFiles.push(existingFiles[i]);
+                                }
+                            } else if(extractMediaTypeFromLink(hInstance.getValue(), hInstance.getCursor()) == '"author"') {
+                                for(i = 0; i < existingFiles.length; i++) {
+                                    filtredExistingFiles.push(existingFiles[i]);
+                                }
+                            } else if(extractMediaTypeFromLink(hInstance.getValue(), hInstance.getCursor()) == '"help"') {
+                                for(i = 0; i < existingFiles.length; i++) {
+                                    if(FileSystem.lstatSync(existingFiles[i]).isFile()) {
+                                        if(existingFiles[i].endsWith(".html") || existingFiles[i].endsWith(".htm") || existingFiles[i].endsWith(".asp")) {
+                                            filtredExistingFiles.push(existingFiles[i]);
+                                        }
+                                    } else {
+                                        filtredExistingFiles.push(existingFiles[i]);
+                                    }
+                                }
+                            } else if(extractMediaTypeFromLink(hInstance.getValue(), hInstance.getCursor()) == '"icon"') {
+                                for(i = 0; i < existingFiles.length; i++) {
+                                    if(FileSystem.lstatSync(existingFiles[i]).isFile()) {
+                                        if(existingFiles[i].endsWith(".ico") || existingFiles[i].endsWith(".bmp") || existingFiles[i].endsWith(".png") || existingFiles[i].endsWith(".jpg")) {
+                                            filtredExistingFiles.push(existingFiles[i]);
+                                        }
+                                    } else {
+                                        filtredExistingFiles.push(existingFiles[i]);
+                                    }
+                                }
+                            } else if(extractMediaTypeFromLink(hInstance.getValue(), hInstance.getCursor()) == '"license"') {
+                                for(i = 0; i < existingFiles.length; i++) {
+                                    filtredExistingFiles.push(existingFiles[i]);
+                                }
+                            } else if(extractMediaTypeFromLink(hInstance.getValue(), hInstance.getCursor()) == '"help"') {
+                                for(i = 0; i < existingFiles.length; i++) {
+                                    if(FileSystem.lstatSync(existingFiles[i]).isFile()) {
+                                        if(existingFiles[i].endsWith(".html") || existingFiles[i].endsWith(".htm") || existingFiles[i].endsWith(".asp")) {
+                                            filtredExistingFiles.push(existingFiles[i]);
+                                        }
+                                    } else {
+                                        filtredExistingFiles.push(existingFiles[i]);
+                                    }
+                                }
                             }
                         }
                         
@@ -412,6 +688,8 @@ $(document).ready(function() {
                         
                         displayAutocomplete(avaibleStrs, arrayTypes);
                     }
+                } else if(attributeName == "rel" && extractTagName(hInstance.getValue(), hInstance.getCursor()) == "") {
+                    
                 }
             } if(avaibleStrs[0] == "") {
                 $("#_list").css("display", "none");
