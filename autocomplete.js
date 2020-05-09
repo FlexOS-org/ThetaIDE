@@ -3,12 +3,9 @@ const { spawn }  = require('child_process');
 
 var id;
 var hInstance;
-
 var MAX_TAGS = [];
-
 let CONTENT = "";
 let closeTag = true;
-
 let currentTokenType = "";
 
 function init(HInstance) {
