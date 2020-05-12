@@ -3,9 +3,12 @@ const { spawn }  = require('child_process');
 
 var id;
 var hInstance;
+
 var MAX_TAGS = [];
+
 let CONTENT = "";
 let closeTag = true;
+
 let currentTokenType = "";
 
 function init(HInstance) {
@@ -29,6 +32,7 @@ function filter(array, value, bLowerCase) {
     }
     
     let originalValue = value;
+    
     if(bLowerCase){
         value = value.toLowerCase();
         for(i = 0; i < array.length; i++) {
@@ -102,13 +106,20 @@ function displayAutocomplete(arrayElements, arrayTypes) {
 
     $("#_list").empty();
     
+    if(arrayElements.length > 500) {
+        arrayElements.length = 500;
+    }
+    
     if(currentTokenType == "atom") {
         for(i = 0; i < arrayElements.length; i++) {
-            $("#_list").append('<div class="item" id="_' + i + '"><span class="span">' + arrayElements[i].split("&").join("&amp;").split("#").join("&#35;") + '<span class="span" style="position: absolute; left: 430px;">' + arrayElements[i] + '</span></span><i class="' + arrayTypes[i] + '"></i></div>');
+            $("#_list").append('<div class="item" id="_' + i + '"><span class="span">' + arrayElements[i].split("&").join("&amp;").split("#").join("&#35;") + '<span class="span" style="position: absolute; left: 430px;">' + arrayElements[i] + '</span></span></div><i class="' + arrayTypes[i] + '"></i>');
         }
     } else {
         for(i = 0; i < arrayElements.length; i++) {
-            $("#_list").append('<div class="item" id="_' + i + '"><span class="span">' + arrayElements[i] + '</span><i class="' + arrayTypes[i] + '"></i></div>');
+            $("#_list").append('<div class="item" id="_' + i + '"><span class="span">' + arrayElements[i] + '</span></div><i class="' + arrayTypes[i] + '"></i>');
+            if(document.getElementsByClassName("item")[i].offsetHeight != 30) {
+                document.getElementsByClassName(arrayTypes[i])[i].style = "height: " + document.getElementsByClassName("item")[i].offsetHeight + "px; line-height: " + document.getElementsByClassName("item")[i].offsetHeight + "px;";
+            }
         }
     }
 }
@@ -132,71 +143,45 @@ function extractMediaTypeFromLink(content, cursor) {
     let mediaType          = "";
     
     for(d = cursorIndex; d > 0; d--) {
-        if(hInstance.getTokenTypeAt(hInstance.posFromIndex(d)) == "attribute" && hInstance.getTokenAt(hInstance.posFromIndex(d)).string == "rel") {
-            let string = hInstance.getTokenAt(hInstance.posFromIndex(hInstance.getTokenAt(hInstance.posFromIndex(d)).end + 2)).string;
+        if(hInstance.getTokenAt(hInstance.posFromIndex(d)).type == "attribute" && hInstance.getTokenAt(hInstance.posFromIndex(d)).string == "rel") {
+            let string = hInstance.getTokenAt(hInstance.posFromIndex(d + 5)).string;
             return string;
             break;
         }
     }
 }
 
-function hasTypeImageAttribute(content, cursor) {
+function hasAttributeWithValue(content, cursor, attributeString, attributeValue) {
     let cursorIndex        = hInstance.indexFromPos(cursor);
     let attName            = "";
     
     for(d = cursorIndex; d > 0; d--) {
-        if(hInstance.getTokenAt(hInstance.posFromIndex(d)).type == "attribute" && hInstance.getTokenAt(hInstance.posFromIndex(d)).string == "type") {
-            if(hInstance.getTokenAt(hInstance.posFromIndex(hInstance.getTokenAt(hInstance.posFromIndex(d)).end + 2)).string == '"image"') {
-                return true;
-                break;
+        if(hInstance.getTokenAt(hInstance.posFromIndex(d)).type == "attribute" && hInstance.getTokenAt(hInstance.posFromIndex(d)).string == attributeString) {
+            for(i = cursorIndex; i > 0; i--) {
+                if(hInstance.getTokenAt(hInstance.posFromIndex(hInstance.getTokenAt(hInstance.posFromIndex(d)).end + i)).string.split("'").join("").split('"').join("") == attributeValue) {
+                    return true;
+                    break;
+                }
             }
         }
     }
 }
 
 function gatherAllIDs(content) {
-    /*let tokens = [];
-    let extendedTokens = [];
-    
-    for(i = 0; i < hInstance.lineCount(); i++) {
-        extendedTokens.length = 0;
-        extendedTokens = hInstance.getLineTokens(i);
-        appendArrayToAnother(tokens, extendedTokens);
-    }
-    
-    for(i = 0; i < tokens.length; i++) {
-        if(tokens[i].type != "attribute" && tokens[i].string.toLowerCase() != "id") {
-            tokens.splice(i, 1);
-        }
-    }
-    
-    let returnedIDs = [];
-    for(i = 0; i < tokens.length; i++) {
-        let foundTokenType = "";
-        for(j = tokens[i].end; j < hInstance.getValue().length; j++) {
-            if(hInstance.getTokenTypeAt(hInstance.posFromIndex(j)) == "string") {
-                returnedIDs.push(hInstance.getTokenAt(hInstance.posFromIndex(j)).string.split('"').join(""));
-                j = j + hInstance.getTokenAt(hInstance.posFromIndex(j)).string.length +  4;
-            }
-        }
-    }
-    
-    return returnedIDs;*/
-    
     let tokens = [];
-    let extendedTokens = [];
-    
-    for(i = 0; i < hInstance.lineCount(); i++) {
-        extendedTokens.length = 0;
-        extendedTokens = hInstance.getLineTokens(i);
-        appendArrayToAnother(tokens, extendedTokens);
-    }
-    
-    for(i = 0; i < tokens.length; i++) {
-        if(tokens[i].type != "string") {
-            tokens.splice(i, 1);
+    let bId    = false;
+    for(i = 0; i < content.length; i++) {
+        if(bId == false && hInstance.getTokenTypeAt(hInstance.posFromIndex(i)) == "attribute" && hInstance.getTokenAt(hInstance.posFromIndex(i)).string.toLowerCase() == "id") {
+            bId = true;
+        }
+        
+        else if(bId == true && hInstance.getTokenTypeAt(hInstance.posFromIndex(i)) == "string") {
+            tokens.push("#" + hInstance.getTokenAt(hInstance.posFromIndex(i)).string.split("'").join("").split('"').join(""));
+            bId = false;
         }
     }
+    
+    return tokens;
 }
 
 $(document).ready(function() {
@@ -211,11 +196,9 @@ $(document).ready(function() {
     });
     
     hInstance.on("keyup", function(editor, event) {
-        alert(gatherAllIDs(hInstance.getValue()));
+        //alert(gatherAllIDs(hInstance.getValue()));
         
-        console.log(hInstance.getTokenAt(hInstance.getCursor()));
-        
-        if(hInstance.getModeAt(hInstance.getCursor()).name != "xml" && hInstance.getModeAt(hInstance.getCursor()).name != "javascript" && hInstance.getModeAt(hInstance.getCursor()).name != "css") { $("#_list").css("display", "none"); }
+        if(hInstance.getModeAt(hInstance.getCursor()).name != "xml" && hInstance.getModeAt(hInstance.getCursor()).name != "javascript" && hInstance.getModeAt(hInstance.getCursor()).name != "css" && hInstance.getModeAt(hInstance.getCursor()).name != "php" && hInstance.getModeAt(hInstance.getCursor()).name != "ruby" && hInstance.getModeAt(hInstance.getCursor()).name != "python") { $("#_list").css("display", "none"); }
         
         if(hInstance.getModeAt(hInstance.getCursor()).name == "xml") {
             let avaibleTags = [];
@@ -330,7 +313,7 @@ $(document).ready(function() {
                                     filtredExistingFiles.push(existingFiles[i]);
                                 }
                             }
-                        } else if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "input" && hasTypeImageAttribute(hInstance.getValue(), hInstance.getCursor())) {
+                        } else if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "input" && hasAttributeWithValue(hInstance.getValue(), hInstance.getCursor(), "type", "image")) {
                             for(i = 0; i < existingFiles.length; i++) {
                                 filtredExistingFiles.push(existingFiles[i]);
                             }
@@ -409,7 +392,7 @@ $(document).ready(function() {
                                     filtredExistingFiles.push(existingFiles[i]);
                                 }
                             }
-                        } else if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "input" && hasTypeImageAttribute(hInstance.getValue(), hInstance.getCursor())) {
+                        } else if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "input" && hasAttributeWithValue(hInstance.getValue(), hInstance.getCursor(), "type", "image")) {
                             for(i = 0; i < existingFiles.length; i++) {
                                 filtredExistingFiles.push(existingFiles[i]);
                             }
@@ -512,6 +495,7 @@ $(document).ready(function() {
                         displayAutocomplete(avaibleStrs, arrayTypes);
                     }
                 } else if(attributeName == "href") {
+                    let sections = gatherAllIDs(hInstance.getValue());
                     let token = hInstance.getTokenAt(hInstance.getCursor());
                     let tokenString  = token.string.slice(1, token.string.length - 1);
                     
@@ -534,7 +518,7 @@ $(document).ready(function() {
                         
                         let filtredExistingFiles = [];
                         if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == 'link') {
-                            if(extractMediaTypeFromLink(hInstance.getValue(), hInstance.getCursor()) == '"stylesheet"') {
+                            if(extractMediaTypeFromLink(hInstance.getValue(), hInstance.getCursor()).split("'").join('"') == '"stylesheet"') {
                                 for(i = 0; i < existingFiles.length; i++) {
                                     if(FileSystem.lstatSync(path + existingFiles[i]).isFile()) {
                                         if(existingFiles[i].endsWith(".css")) {
@@ -544,15 +528,15 @@ $(document).ready(function() {
                                         filtredExistingFiles.push(existingFiles[i]);
                                     }
                                 }
-                            } else if(extractMediaTypeFromLink(hInstance.getValue(), hInstance.getCursor()) == '"alternate"') {
+                            } else if(extractMediaTypeFromLink(hInstance.getValue(), hInstance.getCursor()).split("'").join('"') == '"alternate"') {
                                 for(i = 0; i < existingFiles.length; i++) {
                                     filtredExistingFiles.push(existingFiles[i]);
                                 }
-                            } else if(extractMediaTypeFromLink(hInstance.getValue(), hInstance.getCursor()) == '"author"') {
+                            } else if(extractMediaTypeFromLink(hInstance.getValue(), hInstance.getCursor()).split("'").join('"') == '"author"') {
                                 for(i = 0; i < existingFiles.length; i++) {
                                     filtredExistingFiles.push(existingFiles[i]);
                                 }
-                            } else if(extractMediaTypeFromLink(hInstance.getValue(), hInstance.getCursor()) == '"help"') {
+                            } else if(extractMediaTypeFromLink(hInstance.getValue(), hInstance.getCursor()).split("'").join('"') == '"help"') {
                                 for(i = 0; i < existingFiles.length; i++) {
                                     if(FileSystem.lstatSync(path + existingFiles[i]).isFile()) {
                                         if(existingFiles[i].endsWith(".html") || existingFiles[i].endsWith(".htm") || existingFiles[i].endsWith(".asp")) {
@@ -562,7 +546,7 @@ $(document).ready(function() {
                                         filtredExistingFiles.push(existingFiles[i]);
                                     }
                                 }
-                            } else if(extractMediaTypeFromLink(hInstance.getValue(), hInstance.getCursor()) == '"icon"') {
+                            } else if(extractMediaTypeFromLink(hInstance.getValue(), hInstance.getCursor()).split("'").join('"') == '"icon"') {
                                 for(i = 0; i < existingFiles.length; i++) {
                                     if(FileSystem.lstatSync(path + existingFiles[i]).isFile()) {
                                         if(existingFiles[i].endsWith(".ico") || existingFiles[i].endsWith(".bmp") || existingFiles[i].endsWith(".png") || existingFiles[i].endsWith(".jpg")) {
@@ -572,11 +556,11 @@ $(document).ready(function() {
                                         filtredExistingFiles.push(existingFiles[i]);
                                     }
                                 }
-                            } else if(extractMediaTypeFromLink(hInstance.getValue(), hInstance.getCursor()) == '"license"') {
+                            } else if(extractMediaTypeFromLink(hInstance.getValue(), hInstance.getCursor()).split("'").join('"') == '"license"') {
                                 for(i = 0; i < existingFiles.length; i++) {
                                     filtredExistingFiles.push(existingFiles[i]);
                                 }
-                            } else if(extractMediaTypeFromLink(hInstance.getValue(), hInstance.getCursor()) == '"help"') {
+                            } else if(extractMediaTypeFromLink(hInstance.getValue(), hInstance.getCursor()).split("'").join('"') == '"help"') {
                                 for(i = 0; i < existingFiles.length; i++) {
                                     if(FileSystem.lstatSync(path + existingFiles[i]).isFile()) {
                                         if(existingFiles[i].endsWith(".html") || existingFiles[i].endsWith(".htm") || existingFiles[i].endsWith(".asp")) {
@@ -586,18 +570,199 @@ $(document).ready(function() {
                                         filtredExistingFiles.push(existingFiles[i]);
                                     }
                                 }
+                            } else {
+                                for(i = 0; i < existingFiles.length; i++) {
+                                    filtredExistingFiles.push(existingFiles[i]);
+                                }
                             }
                         } else if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "a") {
                             for(i = 0; i < existingFiles.length; i++) {
                                 filtredExistingFiles.push(existingFiles[i]);
                             }
+                        } else if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "area" || extractTagName(hInstance.getValue(), hInstance.getCursor()) == "base") {
+                            for(i = 0; i < existingFiles.length; i++) {
+                                if(FileSystem.lstatSync(path + existingFiles[i]).isFile()) {
+                                    if(existingFiles[i].endsWith(".html") || existingFiles[i].endsWith(".htm") || existingFiles[i].endsWith(".asp")) {
+                                        filtredExistingFiles.push(existingFiles[i]);
+                                    }
+                                } else {
+                                    filtredExistingFiles.push(existingFiles[i]);
+                                }
+                            }
                         }
                         
-                        /*let sections = gatherAllIDs(hInstance.getValue());
+                        if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "a") {
+                            for(i = 0; i < sections.length; i++) {
+                                filtredExistingFiles.push(sections[i]);
+                            }
+                        }
                         
-                        for(i = 0; i < sections.length; i++) {
-                            filtredExistingFiles.push(sections[i]);
-                        }*/
+                        filtredExistingFiles = filtredExistingFiles.sort();
+                        
+                        avaibleStrs = filter(filtredExistingFiles, fname, true);
+                        
+                        let arrayTypes = [];
+                        if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "a") {
+                            for(i = 0; i < avaibleStrs.length; i++) {
+                                if(avaibleStrs[i].startsWith("#")) {
+                                    arrayTypes[i] = "section";
+                                } else {
+                                    arrayTypes[i] = "string";
+                                }
+                            }
+                        } else {
+                            for(i = 0; i < avaibleStrs.length; i++) {
+                                arrayTypes[i] = "string";
+                            }
+                        }
+                        
+                        currentTokenType = "path";
+                        
+                        displayAutocomplete(avaibleStrs, arrayTypes);
+                    } else {
+                        let existingFiles = [];
+                        
+                        FileSystem.readdirSync("./").forEach(file => {
+                            existingFiles.push(file);
+                        });
+                        
+                        let filtredExistingFiles = [];
+                        if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == 'link') {
+                            if(extractMediaTypeFromLink(hInstance.getValue(), hInstance.getCursor()).split("'").join('"') == '"stylesheet"') {
+                                for(i = 0; i < existingFiles.length; i++) {
+                                    if(FileSystem.lstatSync(existingFiles[i]).isFile()) {
+                                        if(existingFiles[i].endsWith(".css")) {
+                                            filtredExistingFiles.push(existingFiles[i]);
+                                        }
+                                    } else {
+                                        filtredExistingFiles.push(existingFiles[i]);
+                                    }
+                                }
+                            } else if(extractMediaTypeFromLink(hInstance.getValue(), hInstance.getCursor()).split("'").join('"') == '"alternate"') {
+                                for(i = 0; i < existingFiles.length; i++) {
+                                    filtredExistingFiles.push(existingFiles[i]);
+                                }
+                            } else if(extractMediaTypeFromLink(hInstance.getValue(), hInstance.getCursor()).split("'").join('"') == '"author"') {
+                                for(i = 0; i < existingFiles.length; i++) {
+                                    filtredExistingFiles.push(existingFiles[i]);
+                                }
+                            } else if(extractMediaTypeFromLink(hInstance.getValue(), hInstance.getCursor()).split("'").join('"') == '"help"') {
+                                for(i = 0; i < existingFiles.length; i++) {
+                                    if(FileSystem.lstatSync(existingFiles[i]).isFile()) {
+                                        if(existingFiles[i].endsWith(".html") || existingFiles[i].endsWith(".htm") || existingFiles[i].endsWith(".asp")) {
+                                            filtredExistingFiles.push(existingFiles[i]);
+                                        }
+                                    } else {
+                                        filtredExistingFiles.push(existingFiles[i]);
+                                    }
+                                }
+                            } else if(extractMediaTypeFromLink(hInstance.getValue(), hInstance.getCursor()).split("'").join('"') == '"icon"') {
+                                for(i = 0; i < existingFiles.length; i++) {
+                                    if(FileSystem.lstatSync(existingFiles[i]).isFile()) {
+                                        if(existingFiles[i].endsWith(".ico") || existingFiles[i].endsWith(".bmp") || existingFiles[i].endsWith(".png") || existingFiles[i].endsWith(".jpg")) {
+                                            filtredExistingFiles.push(existingFiles[i]);
+                                        }
+                                    } else {
+                                        filtredExistingFiles.push(existingFiles[i]);
+                                    }
+                                }
+                            } else if(extractMediaTypeFromLink(hInstance.getValue(), hInstance.getCursor()).split("'").join('"') == '"license"') {
+                                for(i = 0; i < existingFiles.length; i++) {
+                                    filtredExistingFiles.push(existingFiles[i]);
+                                }
+                            } else if(extractMediaTypeFromLink(hInstance.getValue(), hInstance.getCursor()).split("'").join('"') == '"help"') {
+                                for(i = 0; i < existingFiles.length; i++) {
+                                    if(FileSystem.lstatSync(existingFiles[i]).isFile()) {
+                                        if(existingFiles[i].endsWith(".html") || existingFiles[i].endsWith(".htm") || existingFiles[i].endsWith(".asp")) {
+                                            filtredExistingFiles.push(existingFiles[i]);
+                                        }
+                                    } else {
+                                        filtredExistingFiles.push(existingFiles[i]);
+                                    }
+                                }
+                            } else {
+                                for(i = 0; i < existingFiles.length; i++) {
+                                    filtredExistingFiles.push(existingFiles[i]);
+                                }
+                            }
+                        } else if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "a") {
+                            for(i = 0; i < existingFiles.length; i++) {
+                                filtredExistingFiles.push(existingFiles[i]);
+                            }
+                        } else if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "area" || extractTagName(hInstance.getValue(), hInstance.getCursor()) == "base") {
+                            for(i = 0; i < existingFiles.length; i++) {
+                                if(FileSystem.lstatSync(existingFiles[i]).isFile()) {
+                                    if(existingFiles[i].endsWith(".html") || existingFiles[i].endsWith(".htm") || existingFiles[i].endsWith(".asp")) {
+                                        filtredExistingFiles.push(existingFiles[i]);
+                                    }
+                                } else {
+                                    filtredExistingFiles.push(existingFiles[i]);
+                                }
+                            }
+                        }
+                        
+                        if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "a") {
+                            for(i = 0; i < sections.length; i++) {
+                                filtredExistingFiles.push(sections[i]);
+                            }
+                        }
+                        
+                        filtredExistingFiles = filtredExistingFiles.sort();
+                        
+                        avaibleStrs = filter(filtredExistingFiles, tokenString, true);
+                        
+                        let arrayTypes = [];
+                        if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "a") {
+                            for(i = 0; i < avaibleStrs.length; i++) {
+                                if(avaibleStrs[i].startsWith("#")) {
+                                    arrayTypes[i] = "section";
+                                } else {
+                                    arrayTypes[i] = "string";
+                                }
+                            }
+                        } else {
+                            for(i = 0; i < avaibleStrs.length; i++) {
+                                arrayTypes[i] = "string";
+                            }
+                        }
+                        
+                        currentTokenType = "path";
+                        
+                        displayAutocomplete(avaibleStrs, arrayTypes);
+                    }
+                } else if(attributeName == "download") {
+                    let token = hInstance.getTokenAt(hInstance.getCursor());
+                    let tokenString  = token.string.slice(1, token.string.length - 1);
+                    
+                    if(tokenString.search("/") != -1 || tokenString.search(/\\/g) != -1) {
+                        let path     = "";
+                        let fname    = "";
+                        
+                        tokenString = tokenString.split("\\").join("/");
+                        
+                        if(tokenString.search("/") != -1) {
+                            path  = tokenString.substring(0, tokenString.lastIndexOf("/") + 1);
+                            fname = tokenString.slice(tokenString.lastIndexOf("/") + 1, tokenString.length);
+                        }
+                        
+                        let existingFiles = [];
+                        
+                        FileSystem.readdirSync(path).forEach(file => {
+                            existingFiles.push(file);
+                        });
+                        
+                        let filtredExistingFiles = [];
+                        if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "a") {
+                            for(i = 0; i < existingFiles.length; i++) {
+                                filtredExistingFiles.push(existingFiles[i]);
+                            }
+                        } else if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "area") {
+                            for(i = 0; i < existingFiles.length; i++) {
+                                filtredExistingFiles.push(existingFiles[i]);
+                            }
+                        }
+                        
+                        filtredExistingFiles = filtredExistingFiles.sort();
                         
                         avaibleStrs = filter(filtredExistingFiles, fname, true);
                         
@@ -617,61 +782,17 @@ $(document).ready(function() {
                         });
                         
                         let filtredExistingFiles = [];
-                        if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == 'link') {
-                            if(extractMediaTypeFromLink(hInstance.getValue(), hInstance.getCursor()) == '"stylesheet"') {
-                                for(i = 0; i < existingFiles.length; i++) {
-                                    if(FileSystem.lstatSync(existingFiles[i]).isFile()) {
-                                        if(existingFiles[i].endsWith(".css")) {
-                                            filtredExistingFiles.push(existingFiles[i]);
-                                        }
-                                    } else {
-                                        filtredExistingFiles.push(existingFiles[i]);
-                                    }
-                                }
-                            } else if(extractMediaTypeFromLink(hInstance.getValue(), hInstance.getCursor()) == '"alternate"') {
-                                for(i = 0; i < existingFiles.length; i++) {
-                                    filtredExistingFiles.push(existingFiles[i]);
-                                }
-                            } else if(extractMediaTypeFromLink(hInstance.getValue(), hInstance.getCursor()) == '"author"') {
-                                for(i = 0; i < existingFiles.length; i++) {
-                                    filtredExistingFiles.push(existingFiles[i]);
-                                }
-                            } else if(extractMediaTypeFromLink(hInstance.getValue(), hInstance.getCursor()) == '"help"') {
-                                for(i = 0; i < existingFiles.length; i++) {
-                                    if(FileSystem.lstatSync(existingFiles[i]).isFile()) {
-                                        if(existingFiles[i].endsWith(".html") || existingFiles[i].endsWith(".htm") || existingFiles[i].endsWith(".asp")) {
-                                            filtredExistingFiles.push(existingFiles[i]);
-                                        }
-                                    } else {
-                                        filtredExistingFiles.push(existingFiles[i]);
-                                    }
-                                }
-                            } else if(extractMediaTypeFromLink(hInstance.getValue(), hInstance.getCursor()) == '"icon"') {
-                                for(i = 0; i < existingFiles.length; i++) {
-                                    if(FileSystem.lstatSync(existingFiles[i]).isFile()) {
-                                        if(existingFiles[i].endsWith(".ico") || existingFiles[i].endsWith(".bmp") || existingFiles[i].endsWith(".png") || existingFiles[i].endsWith(".jpg")) {
-                                            filtredExistingFiles.push(existingFiles[i]);
-                                        }
-                                    } else {
-                                        filtredExistingFiles.push(existingFiles[i]);
-                                    }
-                                }
-                            } else if(extractMediaTypeFromLink(hInstance.getValue(), hInstance.getCursor()) == '"license"') {
-                                for(i = 0; i < existingFiles.length; i++) {
-                                    filtredExistingFiles.push(existingFiles[i]);
-                                }
-                            } else if(extractMediaTypeFromLink(hInstance.getValue(), hInstance.getCursor()) == '"help"') {
-                                for(i = 0; i < existingFiles.length; i++) {
-                                    if(FileSystem.lstatSync(existingFiles[i]).isFile()) {
-                                        if(existingFiles[i].endsWith(".html") || existingFiles[i].endsWith(".htm") || existingFiles[i].endsWith(".asp")) {
-                                            filtredExistingFiles.push(existingFiles[i]);
-                                        }
-                                    } else {
-                                        filtredExistingFiles.push(existingFiles[i]);
-                                    }
-                                }
+                        if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "a") {
+                            for(i = 0; i < existingFiles.length; i++) {
+                                filtredExistingFiles.push(existingFiles[i]);
+                            }
+                        } else if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "area") {
+                            for(i = 0; i < existingFiles.length; i++) {
+                                filtredExistingFiles.push(existingFiles[i]);
                             }
                         }
+                        
+                        filtredExistingFiles = filtredExistingFiles.sort();
                         
                         avaibleStrs = filter(filtredExistingFiles, tokenString, true);
                         
@@ -684,8 +805,104 @@ $(document).ready(function() {
                         
                         displayAutocomplete(avaibleStrs, arrayTypes);
                     }
-                } else if(attributeName == "rel" && extractTagName(hInstance.getValue(), hInstance.getCursor()) == "") {
+                } else if(attributeName == "rel" && extractTagName(hInstance.getValue(), hInstance.getCursor()) == "link") {
+                    let token = hInstance.getTokenAt(hInstance.getCursor());
+                    let tokenString  = token.string.slice(1, token.string.length - 1);
                     
+                    avaibleStrs = ["alternate", "author", "dns-prefetch", "help", "icon", "license", "next", "pingback", "preconnect", "prefetch", "preload", "prerender", "prev", "search", "stylesheet"];
+                    
+                    avaibleStrs = filter(avaibleStrs, tokenString, true);
+                    
+                    let arrayTypes = [];
+                    for(i = 0; i < avaibleStrs.length; i++) {
+                        arrayTypes[i] = "string";
+                    }
+                    
+                    currentTokenType = "string";
+                    
+                    displayAutocomplete(avaibleStrs, arrayTypes);
+                } else if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "link") {
+                    if(attributeName == "type") {
+                        let token = hInstance.getTokenAt(hInstance.getCursor());
+                        let tokenString  = token.string.slice(1, token.string.length - 1);
+
+                        if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "a" || extractTagName(hInstance.getValue(), hInstance.getCursor()) == "link" || extractTagName(hInstance.getValue(), hInstance.getCursor()) == "embed") {
+                            avaibleStrs = FileSystem.readFileSync("linkTypes.dat").toString().split("\n");
+                        } else if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "button") {
+                            avaibleStrs = ["button", "reset", "submit"];
+                        } else if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "input") {
+                            avaibleStrs = ["button", "checkbox", "color"];
+                        }
+                        
+                        avaibleStrs = filter(avaibleStrs, tokenString, true);
+
+                        let arrayTypes = [];
+                        for(i = 0; i < avaibleStrs.length; i++) {
+                            arrayTypes[i] = "string";
+                        }
+
+                        currentTokenType = "string";
+
+                        displayAutocomplete(avaibleStrs, arrayTypes);
+                    } else if(attributeName == "crossorigin") {
+                        let token = hInstance.getTokenAt(hInstance.getCursor());
+                        let tokenString  = token.string.slice(1, token.string.length - 1);
+
+                        avaibleStrs = ["anonymous", "use-credentials"];
+
+                        avaibleStrs = filter(avaibleStrs, tokenString, true);
+
+                        let arrayTypes = [];
+                        for(i = 0; i < avaibleStrs.length; i++) {
+                            arrayTypes[i] = "string";
+                        }
+
+                        currentTokenType = "string";
+
+                        displayAutocomplete(avaibleStrs, arrayTypes);
+                    } else if(attributeName == "hreflang") {
+                        let token = hInstance.getTokenAt(hInstance.getCursor());
+                        let tokenString  = token.string.slice(1, token.string.length - 1);
+                        
+                        avaibleStrs = filter(langs, tokenString, true);
+
+                        let arrayTypes = [];
+                        for(i = 0; i < avaibleStrs.length; i++) {
+                            arrayTypes[i] = "string";
+                        }
+
+                        currentTokenType = "string";
+
+                        displayAutocomplete(avaibleStrs, arrayTypes);
+                    } else if(attributeName == "media") {
+                        let token = hInstance.getTokenAt(hInstance.getCursor());
+                        let tokenString  = token.string.slice(1, token.string.length - 1);
+
+                        avaibleStrs = ["all", "print", "screen", "speech"];
+
+                        avaibleStrs = filter(avaibleStrs, tokenString, true);
+
+                        let arrayTypes = [];
+                        for(i = 0; i < avaibleStrs.length; i++) {
+                            arrayTypes[i] = "string";
+                        }
+
+                        currentTokenType = "string";
+                    } else if(attributeName == "referrerpolicy") {
+                        let token = hInstance.getTokenAt(hInstance.getCursor());
+                        let tokenString  = token.string.slice(1, token.string.length - 1);
+
+                        avaibleStrs = ["no-referrer", "no-referrer-when-downgrade", "origin", "origin-when-cross-origin", "unsafe-url"];
+
+                        avaibleStrs = filter(avaibleStrs, tokenString, true);
+
+                        let arrayTypes = [];
+                        for(i = 0; i < avaibleStrs.length; i++) {
+                            arrayTypes[i] = "string";
+                        }
+
+                        currentTokenType = "string";
+                    }
                 }
             } if(avaibleStrs[0] == "") {
                 $("#_list").css("display", "none");
@@ -1018,6 +1235,21 @@ $(document).ready(function() {
                     }
                 );
                 
+            } else if(currentTokenType == "string") {
+                let token = hInstance.getTokenAt(hInstance.getCursor());
+                $("#_list").css("display", "none");
+                hInstance.focus();
+                
+                let text = '"' + clickedElement.innerText + '"';
+                
+                hInstance.replaceRange(
+                    text, {
+                        line: hInstance.getCursor().line, ch:token.start
+                    },
+                    {
+                        line:hInstance.getCursor().line , ch:token.end
+                    }
+                );
             } else {
                 let token = hInstance.getTokenAt(hInstance.getCursor());
                 hInstance.replaceRange(
