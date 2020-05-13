@@ -805,11 +805,15 @@ $(document).ready(function() {
                         
                         displayAutocomplete(avaibleStrs, arrayTypes);
                     }
-                } else if(attributeName == "rel" && extractTagName(hInstance.getValue(), hInstance.getCursor()) == "link") {
+                } else if(attributeName == "rel") {
                     let token = hInstance.getTokenAt(hInstance.getCursor());
                     let tokenString  = token.string.slice(1, token.string.length - 1);
                     
-                    avaibleStrs = ["alternate", "author", "dns-prefetch", "help", "icon", "license", "next", "pingback", "preconnect", "prefetch", "preload", "prerender", "prev", "search", "stylesheet"];
+                    if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "link") {
+                        avaibleStrs = ["alternate", "author", "dns-prefetch", "help", "icon", "license", "next", "pingback", "preconnect", "prefetch", "preload", "prerender", "prev", "search", "stylesheet"];
+                    } else if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "a" || extractTagName(hInstance.getValue(), hInstance.getCursor()) == "area") {
+                        avaibleStrs = ["alternate", "author", "bookmark", "external", "help", "license", "next", "nofollow", "noreferrer", "noopener", "prev", "search", "tag"];
+                    }
                     
                     avaibleStrs = filter(avaibleStrs, tokenString, true);
                     
@@ -821,88 +825,72 @@ $(document).ready(function() {
                     currentTokenType = "string";
                     
                     displayAutocomplete(avaibleStrs, arrayTypes);
-                } else if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "link") {
-                    if(attributeName == "type") {
-                        let token = hInstance.getTokenAt(hInstance.getCursor());
-                        let tokenString  = token.string.slice(1, token.string.length - 1);
-
-                        if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "a" || extractTagName(hInstance.getValue(), hInstance.getCursor()) == "link" || extractTagName(hInstance.getValue(), hInstance.getCursor()) == "embed") {
-                            avaibleStrs = FileSystem.readFileSync("linkTypes.dat").toString().split("\n");
-                        } else if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "button") {
-                            avaibleStrs = ["button", "reset", "submit"];
-                        } else if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "input") {
-                            avaibleStrs = ["button", "checkbox", "color"];
-                        }
-                        
-                        avaibleStrs = filter(avaibleStrs, tokenString, true);
-
-                        let arrayTypes = [];
-                        for(i = 0; i < avaibleStrs.length; i++) {
-                            arrayTypes[i] = "string";
-                        }
-
-                        currentTokenType = "string";
-
-                        displayAutocomplete(avaibleStrs, arrayTypes);
-                    } else if(attributeName == "crossorigin") {
-                        let token = hInstance.getTokenAt(hInstance.getCursor());
-                        let tokenString  = token.string.slice(1, token.string.length - 1);
-
-                        avaibleStrs = ["anonymous", "use-credentials"];
-
-                        avaibleStrs = filter(avaibleStrs, tokenString, true);
-
-                        let arrayTypes = [];
-                        for(i = 0; i < avaibleStrs.length; i++) {
-                            arrayTypes[i] = "string";
-                        }
-
-                        currentTokenType = "string";
-
-                        displayAutocomplete(avaibleStrs, arrayTypes);
-                    } else if(attributeName == "hreflang") {
-                        let token = hInstance.getTokenAt(hInstance.getCursor());
-                        let tokenString  = token.string.slice(1, token.string.length - 1);
-                        
-                        avaibleStrs = filter(langs, tokenString, true);
-
-                        let arrayTypes = [];
-                        for(i = 0; i < avaibleStrs.length; i++) {
-                            arrayTypes[i] = "string";
-                        }
-
-                        currentTokenType = "string";
-
-                        displayAutocomplete(avaibleStrs, arrayTypes);
-                    } else if(attributeName == "media") {
-                        let token = hInstance.getTokenAt(hInstance.getCursor());
-                        let tokenString  = token.string.slice(1, token.string.length - 1);
-
-                        avaibleStrs = ["all", "print", "screen", "speech"];
-
-                        avaibleStrs = filter(avaibleStrs, tokenString, true);
-
-                        let arrayTypes = [];
-                        for(i = 0; i < avaibleStrs.length; i++) {
-                            arrayTypes[i] = "string";
-                        }
-
-                        currentTokenType = "string";
-                    } else if(attributeName == "referrerpolicy") {
-                        let token = hInstance.getTokenAt(hInstance.getCursor());
-                        let tokenString  = token.string.slice(1, token.string.length - 1);
-
-                        avaibleStrs = ["no-referrer", "no-referrer-when-downgrade", "origin", "origin-when-cross-origin", "unsafe-url"];
-
-                        avaibleStrs = filter(avaibleStrs, tokenString, true);
-
-                        let arrayTypes = [];
-                        for(i = 0; i < avaibleStrs.length; i++) {
-                            arrayTypes[i] = "string";
-                        }
-
-                        currentTokenType = "string";
+                } else if(attributeName == "type") {
+                    let token = hInstance.getTokenAt(hInstance.getCursor());
+                    let tokenString  = token.string.slice(1, token.string.length - 1);
+                    
+                    if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "a" || extractTagName(hInstance.getValue(), hInstance.getCursor()) == "link" || extractTagName(hInstance.getValue(), hInstance.getCursor()) == "embed" || extractTagName(hInstance.getValue(), hInstance.getCursor()) == "object" || extractTagName(hInstance.getValue(), hInstance.getCursor()) == "script" || extractTagName(hInstance.getValue(), hInstance.getCursor()) == "source") {
+                        avaibleStrs = FileSystem.readFileSync("linkTypes.dat").toString().split("\n");
+                    } else if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "button") {
+                        avaibleStrs = ["button", "reset", "submit"];
+                    } else if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "input") {
+                        avaibleStrs = ["button", "checkbox", "color", "date", "datetime-local", "email", "file", "hidden", "image", "month", "number", "password", "radio", "range", "reset", "search", "submit", "tel", "text", "url", "week"];
+                    } else if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "menu") {
+                        avaibleStrs = ["list", "toolbar", "context"];
+                    } else if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "style" && event.keyCode != 16 && event.keyCode != 38 && event.keyCode != 40 && event.keyCode != 39 && event.keyCode != 37 && event.keyCode != 17 && event.keyCode != 144 && event.keyCode != 93 && event.keyCode != 20 && event.keyCode != 27 && event.keyCode != 112 && event.keyCode != 45 && event.keyCode != 19 && event.keyCode != 112 && event.keyCode != 113 && event.keyCode != 114 && event.keyCode != 115 && event.keyCode != 116 && event.keyCode != 117 && event.keyCode != 118 && event.keyCode != 119 && event.keyCode != 120 && event.keyCode != 121 && event.keyCode != 122 && event.keyCode != 123) {
+                        avaibleStrs = [];
+                        hInstance.replaceRange(
+                            '"text/css"', {
+                                line: hInstance.getCursor().line, ch:token.start
+                            },
+                            {
+                                line:hInstance.getCursor().line , ch:token.end
+                            }
+                        );
                     }
+                    
+                    avaibleStrs = filter(avaibleStrs, tokenString, true);
+
+                    let arrayTypes = [];
+                    for(i = 0; i < avaibleStrs.length; i++) {
+                        arrayTypes[i] = "string";
+                    }
+
+                    currentTokenType = "string";
+
+                    displayAutocomplete(avaibleStrs, arrayTypes);
+                } else if(attributeName == "accept") {
+                    let token = hInstance.getTokenAt(hInstance.getCursor());
+                    let tokenString  = token.string.slice(1, token.string.length - 1);
+                    
+                    let contentBeforeCursor = hInstance.getValue().substring(0, hInstance.indexFromPos(hInstance.getCursor()));
+                    let contentAfterCursor = hInstance.getValue().slice(hInstance.indexFromPos(hInstance.getCursor()), hInstance.getValue().length);
+                    
+                    if(contentBeforeCursor.lastIndexOf(",") != -1 && contentAfterCursor.search(",") != -1) {
+                        tokenString = hInstance.getValue().slice(contentBeforeCursor.lastIndexOf(",") + 1, contentAfterCursor.search(",") + hInstance.indexFromPos(hInstance.getCursor()));
+                    } else if(contentBeforeCursor.lastIndexOf(",") != -1 && contentAfterCursor.search(",") == -1) {
+                        tokenString = hInstance.getValue().slice(contentBeforeCursor.lastIndexOf(",") + 1, token.end - 1);
+                    } else if(contentBeforeCursor.lastIndexOf(",") == -1 && contentAfterCursor.search(",") != -1) {
+                        tokenString = hInstance.getValue().slice(token.start + 1, contentAfterCursor.search(",") + hInstance.indexFromPos(hInstance.getCursor()));
+                    } else {
+                        tokenString = tokenString
+                    }
+                    
+                    if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "input" && hasAttributeWithValue(hInstance.getValue(), hInstance.getCursor(), "type", "file")) {
+                        avaibleStrs.length = 0;
+                        appendArrayToAnother(avaibleStrs, fileExtensions);
+                    }
+
+                    avaibleStrs = filter(avaibleStrs, tokenString, true);
+
+                    let arrayTypes = [];
+                    for(i = 0; i < avaibleStrs.length; i++) {
+                        arrayTypes[i] = "string";
+                    }
+
+                    currentTokenType = "mime";
+
+                    displayAutocomplete(avaibleStrs, arrayTypes);
                 }
             } if(avaibleStrs[0] == "") {
                 $("#_list").css("display", "none");
@@ -1250,6 +1238,57 @@ $(document).ready(function() {
                         line:hInstance.getCursor().line , ch:token.end
                     }
                 );
+            } else if(currentTokenType == "mime") {
+                let token = hInstance.getTokenAt(hInstance.getCursor());
+                let tokenString  = token.string.slice(1, token.string.length - 1);
+                $("#_list").css("display", "none");
+                hInstance.focus();
+                
+                let contentBeforeCursor = hInstance.getValue().substring(0, hInstance.indexFromPos(hInstance.getCursor()));
+                let contentAfterCursor = hInstance.getValue().slice(hInstance.indexFromPos(hInstance.getCursor()), hInstance.getValue().length);
+                
+                if(contentBeforeCursor.lastIndexOf(",") != -1 && contentAfterCursor.search(",") != -1) {
+                    tokenString = hInstance.getValue().slice(contentBeforeCursor.lastIndexOf(",") + 1, contentAfterCursor.search(",") + hInstance.indexFromPos(hInstance.getCursor()));
+                    
+                    hInstance.replaceRange(
+                        clickedElement.innerText, {
+                            line: hInstance.posFromIndex(contentBeforeCursor.lastIndexOf(",") + 1).line, ch: hInstance.posFromIndex(contentBeforeCursor.lastIndexOf(",") + 1).ch
+                        },
+                        {
+                            line: hInstance.posFromIndex(contentAfterCursor.search(",") + hInstance.indexFromPos(hInstance.getCursor())).line, ch: hInstance.posFromIndex(contentAfterCursor.search(",") + hInstance.indexFromPos(hInstance.getCursor())).ch
+                        }
+                    );
+                } else if(contentBeforeCursor.lastIndexOf(",") != -1 && contentAfterCursor.search(",") == -1) {
+                    tokenString = hInstance.getValue().slice(contentBeforeCursor.lastIndexOf(",") + 1, token.end - 1);
+                    hInstance.replaceRange(
+                        clickedElement.innerText, {
+                            line: hInstance.posFromIndex(contentBeforeCursor.lastIndexOf(",") + 1).line, ch: hInstance.posFromIndex(contentBeforeCursor.lastIndexOf(",") + 1).ch
+                        },
+                        {
+                            line: hInstance.posFromIndex(token.end - 1).line, ch: hInstance.posFromIndex(token.end - 1).ch
+                        }
+                    );
+                } else if(contentBeforeCursor.lastIndexOf(",") == -1 && contentAfterCursor.search(",") != -1) {
+                    tokenString = hInstance.getValue().slice(token.start + 1, contentAfterCursor.search(",") + hInstance.indexFromPos(hInstance.getCursor()));
+                    hInstance.replaceRange(
+                        clickedElement.innerText, {
+                            line: hInstance.posFromIndex(token.start + 1).line, ch: hInstance.posFromIndex(token.start + 1).ch
+                        },
+                        {
+                            line: hInstance.posFromIndex(contentAfterCursor.search(",") + hInstance.indexFromPos(hInstance.getCursor())).line, ch: hInstance.posFromIndex(contentAfterCursor.search(",") + hInstance.indexFromPos(hInstance.getCursor())).ch
+                        }
+                    );
+                } else {
+                    tokenString = tokenString
+                    hInstance.replaceRange(
+                        '"' + clickedElement.innerText + '"', {
+                            line: hInstance.posFromIndex(token.start).line, ch: hInstance.posFromIndex(token.start).ch
+                        },
+                        {
+                            line: hInstance.posFromIndex(token.end).line, ch: hInstance.posFromIndex(token.end).ch
+                        }
+                    );
+                }
             } else {
                 let token = hInstance.getTokenAt(hInstance.getCursor());
                 hInstance.replaceRange(
