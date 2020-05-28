@@ -1,5 +1,6 @@
 const FileSystem = require('fs');
 const { spawn }  = require('child_process');
+const cssParser  = require('./cssParser/cssParser.js');
 
 var id;
 var hInstance;
@@ -10,6 +11,8 @@ let CONTENT = "";
 let closeTag = true;
 
 let currentTokenType = "";
+
+var bContextMenu = false;
 
 function init(HInstance) {
     hInstance = HInstance;
@@ -98,16 +101,36 @@ function displayAutocomplete(arrayElements, arrayTypes) {
     y = y + 30;
     y = y + "px";
 
-    $("#_list").css({
-        "display": "inline-block",
-        "left"   : x,
-        "top"    : y
-    });
+    if(parseInt(y.replace("px", "")) > $(window).height() / 2) {
+        $("#_list").css({
+            "display": "inline-block",
+            "left"   : x,
+            "top"    : (parseInt(y.replace("px", "")) - 30 - 210 - $(".CodeMirror-scroll").scrollTop()) + "px"
+        });
+    } else {
+        $("#_list").css({
+            "display": "inline-block",
+            "left"   : x,
+            "top"    : y
+        });
+    }
+    
+    if(parseInt(x.replace("px", "")) > $(window).width() / 2) {
+        $("#_list").css({
+            "display": "inline-block",
+            "left"   : (parseInt(x.replace("px", "")) - 500 - $(".CodeMirror-scroll").scrollLeft()) + "px"
+        });
+    } else {
+        $("#_list").css({
+            "display": "inline-block",
+            "left"   : x,
+        });
+    }
 
     $("#_list").empty();
     
-    if(arrayElements.length > 500) {
-        arrayElements.length = 500;
+    if(arrayElements.length > 100) {
+        arrayElements.length = 100;
     }
     
     if(currentTokenType == "atom") {
@@ -135,19 +158,25 @@ function extractAttributeName(content, cursor) {
         }
     }
     
-    return attName;
+    return attName.toLowerCase();
 }
 
 function extractMediaTypeFromLink(content, cursor) {
     let cursorIndex        = hInstance.indexFromPos(cursor);
     let mediaType          = "";
+    let string = "";
     
     for(d = cursorIndex; d > 0; d--) {
-        if(hInstance.getTokenAt(hInstance.posFromIndex(d)).type == "attribute" && hInstance.getTokenAt(hInstance.posFromIndex(d)).string == "rel") {
-            let string = hInstance.getTokenAt(hInstance.posFromIndex(d + 5)).string;
-            return string;
+        if(hInstance.getTokenAt(hInstance.posFromIndex(d)).type == "attribute" && hInstance.getTokenAt(hInstance.posFromIndex(d)).string.toLowerCase() == "rel") {
+            string = hInstance.getTokenAt(hInstance.posFromIndex(d + 5)).string;
             break;
         }
+    }
+    
+    if(string.length != 0) {
+        return string;
+    } else {
+        return "empty";
     }
 }
 
@@ -156,9 +185,9 @@ function hasAttributeWithValue(content, cursor, attributeString, attributeValue)
     let attName            = "";
     
     for(d = cursorIndex; d > 0; d--) {
-        if(hInstance.getTokenAt(hInstance.posFromIndex(d)).type == "attribute" && hInstance.getTokenAt(hInstance.posFromIndex(d)).string == attributeString) {
+        if(hInstance.getTokenAt(hInstance.posFromIndex(d)).type == "attribute" && hInstance.getTokenAt(hInstance.posFromIndex(d)).string.toLowerCase() == attributeString) {
             for(i = cursorIndex; i > 0; i--) {
-                if(hInstance.getTokenAt(hInstance.posFromIndex(hInstance.getTokenAt(hInstance.posFromIndex(d)).end + i)).string.split("'").join("").split('"').join("") == attributeValue) {
+                if(hInstance.getTokenAt(hInstance.posFromIndex(hInstance.getTokenAt(hInstance.posFromIndex(d)).end + i)).string.split("'").join("").split('"').join("").toLowerCase() == attributeValue) {
                     return true;
                     break;
                 }
@@ -184,19 +213,183 @@ function gatherAllIDs(content) {
     return tokens;
 }
 
-$(document).ready(function() {
+function gatherAllLinkedStylesheets(content, cursor) {
+    content = content.substring(0, hInstance.indexFromPos(cursor));
+    let stylesheets = [];
+    for(i = 0; i < content.match(/(<\s*link\s*type\s*=\s*('text\/css'|"text\/css"|text\/css)\s*rel\s*=\s*('stylesheet'|"stylesheet"|stylesheet)\s*href\s*=\s*.*>)|(<\s*link\s*type\s*=\s*('text\/css'|"text\/css"|text\/css)\s*href\s*=\s*.*>)|(<\s*link\s*rel\s*=\s*('stylesheet'|"stylesheet"|stylesheet)\s*href\s*=\s*.*>)|(<\s*link\s*rel\s*=\s*('stylesheet'|"stylesheet"|stylesheet)\s*type\s*=\s*('text\/css'|"text\/css"|text\/css)\s*href\s*=\s*.*>)/g).length; i++) {
+        stylesheets.push(content.match(/(<\s*link\s*type\s*=\s*('text\/css'|"text\/css"|text\/css)\s*rel\s*=\s*('stylesheet'|"stylesheet"|stylesheet)\s*href\s*=\s*.*>)|(<\s*link\s*type\s*=\s*('text\/css'|"text\/css"|text\/css)\s*href\s*=\s*.*>)|(<\s*link\s*rel\s*=\s*('stylesheet'|"stylesheet"|stylesheet)\s*href\s*=\s*.*>)|(<\s*link\s*rel\s*=\s*('stylesheet'|"stylesheet"|stylesheet)\s*type\s*=\s*('text\/css'|"text\/css"|text\/css)\s*href\s*=\s*.*>)/g)[i].slice(content.match(/(<\s*link\s*type\s*=\s*('text\/css'|"text\/css"|text\/css)\s*rel\s*=\s*('stylesheet'|"stylesheet"|stylesheet)\s*href\s*=\s*.*>)|(<\s*link\s*type\s*=\s*('text\/css'|"text\/css"|text\/css)\s*href\s*=\s*.*>)|(<\s*link\s*rel\s*=\s*('stylesheet'|"stylesheet"|stylesheet)\s*href\s*=\s*.*>)|(<\s*link\s*rel\s*=\s*('stylesheet'|"stylesheet"|stylesheet)\s*type\s*=\s*('text\/css'|"text\/css"|text\/css)\s*href\s*=\s*.*>)/g)[i].search(/href\s*=\s*(('.*')|(".*"))/g), content.match(/(<\s*link\s*type\s*=\s*('text\/css'|"text\/css"|text\/css)\s*rel\s*=\s*('stylesheet'|"stylesheet"|stylesheet)\s*href\s*=\s*.*>)|(<\s*link\s*type\s*=\s*('text\/css'|"text\/css"|text\/css)\s*href\s*=\s*.*>)|(<\s*link\s*rel\s*=\s*('stylesheet'|"stylesheet"|stylesheet)\s*href\s*=\s*.*>)|(<\s*link\s*rel\s*=\s*('stylesheet'|"stylesheet"|stylesheet)\s*type\s*=\s*('text\/css'|"text\/css"|text\/css)\s*href\s*=\s*.*>)/g)[i].search(/href\s*=\s*(('.*')|(".*"))/g) + content.match(/(<\s*link\s*type\s*=\s*('text\/css'|"text\/css"|text\/css)\s*rel\s*=\s*('stylesheet'|"stylesheet"|stylesheet)\s*href\s*=\s*.*>)|(<\s*link\s*type\s*=\s*('text\/css'|"text\/css"|text\/css)\s*href\s*=\s*.*>)|(<\s*link\s*rel\s*=\s*('stylesheet'|"stylesheet"|stylesheet)\s*href\s*=\s*.*>)|(<\s*link\s*rel\s*=\s*('stylesheet'|"stylesheet"|stylesheet)\s*type\s*=\s*('text\/css'|"text\/css"|text\/css)\s*href\s*=\s*.*>)/g)[i].length).replace(/("\s*>$)|('\s*>$)/g, "").replace(/^(href\s*=\s*("|'))/g, ""));
+    }
+    
+    let classes = [];
+    
+    for(i = 0; i < stylesheets.length; i++) {
+        let handle = cssParser.parse(FileSystem.readFileSync(stylesheets[i]).toString());
+        for(j = 0; j < cssParser.getAllClasses(handle).length; j++) {
+            classes.push(cssParser.getAllClasses(handle)[j].replace(/$./g, ""));
+        }
+    }
+    stylesheets = classes;
+    
+    return stylesheets;
+}
+
+function extractNameAttribute(content, cursor) {
+    let cursorIndex        = hInstance.indexFromPos(cursor);
+    let mediaType          = "";
+    let string = "";
+    
+    for(d = cursorIndex; d > 0; d--) {
+        if(hInstance.getTokenAt(hInstance.posFromIndex(d)).type == "attribute" && hInstance.getTokenAt(hInstance.posFromIndex(d)).string == "name") {
+            string = hInstance.getTokenAt(hInstance.posFromIndex(d + 3)).string;
+            break;
+        }
+    }
+    
+    if(string.length != 0) {
+        return string.toLowerCase();
+    } else {
+        return "empty";
+    }
+}
+
+function gatherAllFormNames(content) {
+    let tokens = [];
+    let bId    = false;
+    for(i = 0; i < content.length; i++) {
+        if(bId == false && hInstance.getTokenTypeAt(hInstance.posFromIndex(i)) == "attribute" && hInstance.getTokenAt(hInstance.posFromIndex(i)).string == "name" && hInstance.getTokenAt(hInstance.posFromIndex(i)).state.htmlState.tagName.toLowerCase() == "form") {
+            bId = true;
+        }
+        
+        else if(bId == true && hInstance.getTokenTypeAt(hInstance.posFromIndex(i)) == "string") {
+            tokens.push(hInstance.getTokenAt(hInstance.posFromIndex(i)).string.split("'").join("").split('"').join(""));
+            bId = false;
+        }
+    }
+    
+    return tokens;
+}
+
+function gatherAllDatalistIDs(content) {
+    let tokens = [];
+    let bId    = false;
+    for(i = 0; i < content.length; i++) {
+        if(bId == false && hInstance.getTokenTypeAt(hInstance.posFromIndex(i)) == "attribute" && hInstance.getTokenAt(hInstance.posFromIndex(i)).string == "id" && hInstance.getTokenAt(hInstance.posFromIndex(i)).state.htmlState.tagName.toLowerCase() == "datalist") {
+            bId = true;
+        }
+        
+        else if(bId == true && hInstance.getTokenTypeAt(hInstance.posFromIndex(i)) == "string") {
+            tokens.push(hInstance.getTokenAt(hInstance.posFromIndex(i)).string.split("'").join("").split('"').join(""));
+            bId = false;
+        }
+    }
+    
+    return tokens;
+}
+
+function seeIfRegExpHTML(content, cursor) {
+    for(d = hInstance.indexFromPos(cursor); d > 0; d--) {
+        if(hInstance.getTokenTypeAt(hInstance.posFromIndex(d)) == "attribute") {
+            if(hInstance.getTokenAt(hInstance.posFromIndex(d)).string.toLowerCase() == "pattern") {
+                return 1;
+            }
+            
+            break;
+        }
+    }
+}
+
+$(document).ready(function(e) {
+    $('.CodeMirror').height($(window).height());
+    $('.CodeMirror').width($(window).width());
+    $('#_contextmenu').css("display", "none");
+    
     for(i = 0; i < 500; i++) {
         MAX_TAGS.push(i);
     }
     
-    $(".CodeMirror").height($(window).height());
+    $(".CodeMirror").on('keydown keypress keyup resize scroll', function() {
+        $('.CodeMirror').height($(window).height());
+        $('.CodeMirror').width($(window).width());
+        $('#_contextmenu').css("display", "none");
+    });
     
     $(window).resize(function() {
         $(".CodeMirror").height($(window).height());
+        $(".CodeMirror").width($(window).width());
+    });
+    
+    $(document).on("contextmenu", function(event) {
+        $("#_list").css('display', 'none');
+        
+        event.preventDefault();
+        bContextMenu = true;
+        
+        let x = "";
+        let y = "";
+        
+        if($(".CodeMirror-cursor").length) {
+            let xPos = document.getElementsByClassName('CodeMirror-cursor')[0].style.left;
+            x = xPos.replace("px", "");
+            x = parseFloat(x);
+            x = x + 80;
+            x = x + "px";
+
+            let yPos = document.getElementsByClassName('CodeMirror-cursor')[0].style.top;
+            y = yPos.replace("px", "");
+            y = parseInt(y);
+            y = y + 30;
+            y = y + "px";
+        } else {
+            x = event.pageX + "px";
+            y = event.pageY + "px";
+        }
+        
+        let height = 247;
+        
+        $(".context-menu-wrapper").find("#_regex").first().remove();
+        $(".context-menu-wrapper").find("#_regex_hr").first().remove();
+        $(".context-menu").css("height", "247px");
+        
+        if(hInstance.getModeAt(hInstance.getCursor()).name == "xml" && extractTagName(hInstance.getValue(), hInstance.getCursor()) == "input" && seeIfRegExpHTML(hInstance.getValue(), hInstance.getCursor()) == 1 && hInstance.getTokenAt(hInstance.getCursor()).type == "string") {
+            $(".context-menu-wrapper").append('<hr id="_regex_hr">');
+            $(".context-menu-wrapper").append('<div id="_regex" class="context-menu-item" onclick="javascript:showRegExpComposer(); right: 0px; top: 245px;">RegExp composer<p style="float: right; padding-right: 5px;">Ctrl+Shift+R</p></div>');
+            
+            height = height + 63;
+        }
+        
+        if(parseInt(y.replace("px", "")) > $(window).height() / 2) {
+            $("#_contextmenu").css({
+                "display": "block",
+                "top"    : (parseInt(y.replace("px", "")) - 30 - height - $(".CodeMirror-scroll").scrollTop()) + "px",
+                "height" : height + "px"
+            });
+        } else {
+            $("#_contextmenu").css({
+                "display": "block",
+                "top"    : y,
+                "height" : height + "px"
+            });
+        }
+        
+        if(parseInt(x.replace("px", "")) > $(window).width() / 2) {
+            $("#_contextmenu").css({
+                "display": "block",
+                "left"   : (parseInt(x.replace("px", "")) - 300 - $(".CodeMirror-scroll").scrollLeft()) + "px",
+                "height" : height + "px"
+            });
+        } else {
+            $("#_contextmenu").css({
+                "display": "block",
+                "left"   : x,
+                "height" : height + "px"
+            });
+        }
     });
     
     hInstance.on("keyup", function(editor, event) {
-        //alert(gatherAllIDs(hInstance.getValue()));
+        if(event.ctrlKey && event.keyCode == 80){
+            document.execCommand('print');
+        }
         
         if(hInstance.getModeAt(hInstance.getCursor()).name != "xml" && hInstance.getModeAt(hInstance.getCursor()).name != "javascript" && hInstance.getModeAt(hInstance.getCursor()).name != "css" && hInstance.getModeAt(hInstance.getCursor()).name != "php" && hInstance.getModeAt(hInstance.getCursor()).name != "ruby" && hInstance.getModeAt(hInstance.getCursor()).name != "python") { $("#_list").css("display", "none"); }
         
@@ -570,7 +763,7 @@ $(document).ready(function() {
                                         filtredExistingFiles.push(existingFiles[i]);
                                     }
                                 }
-                            } else {
+                            } else if(extractMediaTypeFromLink(hInstance.getValue(), hInstance.getCursor()) == "empty") {
                                 for(i = 0; i < existingFiles.length; i++) {
                                     filtredExistingFiles.push(existingFiles[i]);
                                 }
@@ -680,7 +873,7 @@ $(document).ready(function() {
                                         filtredExistingFiles.push(existingFiles[i]);
                                     }
                                 }
-                            } else {
+                            } else if(extractMediaTypeFromLink(hInstance.getValue(), hInstance.getCursor()) == "empty") {
                                 for(i = 0; i < existingFiles.length; i++) {
                                     filtredExistingFiles.push(existingFiles[i]);
                                 }
@@ -805,6 +998,243 @@ $(document).ready(function() {
                         
                         displayAutocomplete(avaibleStrs, arrayTypes);
                     }
+                } else if(attributeName == "action") {
+                    let token = hInstance.getTokenAt(hInstance.getCursor());
+                    let tokenString  = token.string.slice(1, token.string.length - 1);
+                    
+                    if(tokenString.search("/") != -1 || tokenString.search(/\\/g) != -1) {
+                        let path     = "";
+                        let fname    = "";
+                        
+                        tokenString = tokenString.split("\\").join("/");
+                        
+                        if(tokenString.search("/") != -1) {
+                            path  = tokenString.substring(0, tokenString.lastIndexOf("/") + 1);
+                            fname = tokenString.slice(tokenString.lastIndexOf("/") + 1, tokenString.length);
+                        }
+                        
+                        let existingFiles = [];
+                        
+                        FileSystem.readdirSync(path).forEach(file => {
+                            existingFiles.push(file);
+                        });
+                        
+                        let filtredExistingFiles = [];
+                        if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "form") {
+                            for(i = 0; i < existingFiles.length; i++) {
+                                if(FileSystem.lstatSync(path + existingFiles[i]).isFile()) {
+                                    if(existingFiles[i].endsWith(".php")) {
+                                        filtredExistingFiles.push(existingFiles[i]);
+                                    }
+                                } else {
+                                    filtredExistingFiles.push(existingFiles[i]);
+                                }
+                            }
+                        }
+                        
+                        filtredExistingFiles = filtredExistingFiles.sort();
+                        
+                        avaibleStrs = filter(filtredExistingFiles, fname, true);
+                        
+                        let arrayTypes = [];
+                        for(i = 0; i < avaibleStrs.length; i++) {
+                            arrayTypes[i] = "string";
+                        }
+                        
+                        currentTokenType = "path";
+                        
+                        displayAutocomplete(avaibleStrs, arrayTypes);
+                    } else {
+                        let existingFiles = [];
+                        
+                        FileSystem.readdirSync("./").forEach(file => {
+                            existingFiles.push(file);
+                        });
+                        
+                        let filtredExistingFiles = [];
+                        if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "form") {
+                            for(i = 0; i < existingFiles.length; i++) {
+                                if(FileSystem.lstatSync(existingFiles[i]).isFile()) {
+                                    if(existingFiles[i].endsWith(".php")) {
+                                        filtredExistingFiles.push(existingFiles[i]);
+                                    }
+                                } else {
+                                    filtredExistingFiles.push(existingFiles[i]);
+                                }
+                            }
+                        }
+                        
+                        filtredExistingFiles = filtredExistingFiles.sort();
+                        
+                        avaibleStrs = filter(filtredExistingFiles, tokenString, true);
+                        
+                        let arrayTypes = [];
+                        for(i = 0; i < avaibleStrs.length; i++) {
+                            arrayTypes[i] = "string";
+                        }
+                        
+                        currentTokenType = "path";
+                        
+                        displayAutocomplete(avaibleStrs, arrayTypes);
+                    }
+                } else if(attributeName == "cite") {
+                    let token = hInstance.getTokenAt(hInstance.getCursor());
+                    let tokenString  = token.string.slice(1, token.string.length - 1);
+                    
+                    if(tokenString.search("/") != -1 || tokenString.search(/\\/g) != -1) {
+                        let path     = "";
+                        let fname    = "";
+                        
+                        tokenString = tokenString.split("\\").join("/");
+                        
+                        if(tokenString.search("/") != -1) {
+                            path  = tokenString.substring(0, tokenString.lastIndexOf("/") + 1);
+                            fname = tokenString.slice(tokenString.lastIndexOf("/") + 1, tokenString.length);
+                        }
+                        
+                        let existingFiles = [];
+                        
+                        FileSystem.readdirSync(path).forEach(file => {
+                            existingFiles.push(file);
+                        });
+                        
+                        let filtredExistingFiles = [];
+                        if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "blockquote" || extractTagName(hInstance.getValue(), hInstance.getCursor()) == "del" || extractTagName(hInstance.getValue(), hInstance.getCursor()) == "ins" || extractTagName(hInstance.getValue(), hInstance.getCursor()) == "q") {
+                            for(i = 0; i < existingFiles.length; i++) {
+                                if(FileSystem.lstatSync(path + existingFiles[i]).isFile()) {
+                                    if(existingFiles[i].endsWith(".html") || existingFiles[i].endsWith(".htm") || existingFiles[i].endsWith(".asp") || existingFiles[i].endsWith(".aspx")) {
+                                        filtredExistingFiles.push(existingFiles[i]);
+                                    }
+                                } else {
+                                    filtredExistingFiles.push(existingFiles[i]);
+                                }
+                            }
+                        }
+                        
+                        filtredExistingFiles = filtredExistingFiles.sort();
+                        
+                        avaibleStrs = filter(filtredExistingFiles, fname, true);
+                        
+                        let arrayTypes = [];
+                        for(i = 0; i < avaibleStrs.length; i++) {
+                            arrayTypes[i] = "string";
+                        }
+                        
+                        currentTokenType = "path";
+                        
+                        displayAutocomplete(avaibleStrs, arrayTypes);
+                    } else {
+                        let existingFiles = [];
+                        
+                        FileSystem.readdirSync("./").forEach(file => {
+                            existingFiles.push(file);
+                        });
+                        
+                        let filtredExistingFiles = [];
+                        if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "blockquote" || extractTagName(hInstance.getValue(), hInstance.getCursor()) == "del" || extractTagName(hInstance.getValue(), hInstance.getCursor()) == "ins" || extractTagName(hInstance.getValue(), hInstance.getCursor()) == "q") {
+                            for(i = 0; i < existingFiles.length; i++) {
+                                if(FileSystem.lstatSync(existingFiles[i]).isFile()) {
+                                    if(existingFiles[i].endsWith(".html") || existingFiles[i].endsWith(".htm") || existingFiles[i].endsWith(".asp") || existingFiles[i].endsWith(".aspx")) {
+                                        filtredExistingFiles.push(existingFiles[i]);
+                                    }
+                                } else {
+                                    filtredExistingFiles.push(existingFiles[i]);
+                                }
+                            }
+                        }
+                        
+                        filtredExistingFiles = filtredExistingFiles.sort();
+                        
+                        avaibleStrs = filter(filtredExistingFiles, tokenString, true);
+                        
+                        let arrayTypes = [];
+                        for(i = 0; i < avaibleStrs.length; i++) {
+                            arrayTypes[i] = "string";
+                        }
+                        
+                        currentTokenType = "path";
+                        
+                        displayAutocomplete(avaibleStrs, arrayTypes);
+                    }
+                } else if(attributeName == "formaction") {
+                    let token = hInstance.getTokenAt(hInstance.getCursor());
+                    let tokenString  = token.string.slice(1, token.string.length - 1);
+                    
+                    if(tokenString.search("/") != -1 || tokenString.search(/\\/g) != -1) {
+                        let path     = "";
+                        let fname    = "";
+                        
+                        tokenString = tokenString.split("\\").join("/");
+                        
+                        if(tokenString.search("/") != -1) {
+                            path  = tokenString.substring(0, tokenString.lastIndexOf("/") + 1);
+                            fname = tokenString.slice(tokenString.lastIndexOf("/") + 1, tokenString.length);
+                        }
+                        
+                        let existingFiles = [];
+                        
+                        FileSystem.readdirSync(path).forEach(file => {
+                            existingFiles.push(file);
+                        });
+                        
+                        let filtredExistingFiles = [];
+                        if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "button" && hasAttributeWithValue(hInstance.getValue(), hInstance.getCursor(), "type", "submit") || extractTagName(hInstance.getValue(), hInstance.getCursor()) == "input" && hasAttributeWithValue(hInstance.getValue(), hInstance.getCursor(), "type", "submit")) {
+                            for(i = 0; i < existingFiles.length; i++) {
+                                if(FileSystem.lstatSync(path + existingFiles[i]).isFile()) {
+                                    if(existingFiles[i].endsWith(".php")) {
+                                        filtredExistingFiles.push(existingFiles[i]);
+                                    }
+                                } else {
+                                    filtredExistingFiles.push(existingFiles[i]);
+                                }
+                            }
+                        }
+                        
+                        filtredExistingFiles = filtredExistingFiles.sort();
+                        
+                        avaibleStrs = filter(filtredExistingFiles, fname, true);
+                        
+                        let arrayTypes = [];
+                        for(i = 0; i < avaibleStrs.length; i++) {
+                            arrayTypes[i] = "string";
+                        }
+                        
+                        currentTokenType = "path";
+                        
+                        displayAutocomplete(avaibleStrs, arrayTypes);
+                    } else {
+                        let existingFiles = [];
+                        
+                        FileSystem.readdirSync("./").forEach(file => {
+                            existingFiles.push(file);
+                        });
+                        
+                        let filtredExistingFiles = [];
+                        if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "button" && hasAttributeWithValue(hInstance.getValue(), hInstance.getCursor(), "type", "submit") || extractTagName(hInstance.getValue(), hInstance.getCursor()) == "input" && hasAttributeWithValue(hInstance.getValue(), hInstance.getCursor(), "type", "submit")) {
+                            for(i = 0; i < existingFiles.length; i++) {
+                                if(FileSystem.lstatSync(existingFiles[i]).isFile()) {
+                                    if(existingFiles[i].endsWith(".php")) {
+                                        filtredExistingFiles.push(existingFiles[i]);
+                                    }
+                                } else {
+                                    filtredExistingFiles.push(existingFiles[i]);
+                                }
+                            }
+                        }
+                        
+                        filtredExistingFiles = filtredExistingFiles.sort();
+                        
+                        avaibleStrs = filter(filtredExistingFiles, tokenString, true);
+                        
+                        let arrayTypes = [];
+                        for(i = 0; i < avaibleStrs.length; i++) {
+                            arrayTypes[i] = "string";
+                        }
+                        
+                        currentTokenType = "path";
+                        
+                        displayAutocomplete(avaibleStrs, arrayTypes);
+                    }
                 } else if(attributeName == "rel") {
                     let token = hInstance.getTokenAt(hInstance.getCursor());
                     let tokenString  = token.string.slice(1, token.string.length - 1);
@@ -830,7 +1260,7 @@ $(document).ready(function() {
                     let tokenString  = token.string.slice(1, token.string.length - 1);
                     
                     if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "a" || extractTagName(hInstance.getValue(), hInstance.getCursor()) == "link" || extractTagName(hInstance.getValue(), hInstance.getCursor()) == "embed" || extractTagName(hInstance.getValue(), hInstance.getCursor()) == "object" || extractTagName(hInstance.getValue(), hInstance.getCursor()) == "script" || extractTagName(hInstance.getValue(), hInstance.getCursor()) == "source") {
-                        avaibleStrs = FileSystem.readFileSync("linkTypes.dat").toString().split("\n");
+                        avaibleStrs = FileSystem.readFileSync("HTMLMime.dat").toString().split("\n");
                     } else if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "button") {
                         avaibleStrs = ["button", "reset", "submit"];
                     } else if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "input") {
@@ -873,12 +1303,13 @@ $(document).ready(function() {
                     } else if(contentBeforeCursor.lastIndexOf(",") == -1 && contentAfterCursor.search(",") != -1) {
                         tokenString = hInstance.getValue().slice(token.start + 1, contentAfterCursor.search(",") + hInstance.indexFromPos(hInstance.getCursor()));
                     } else {
-                        tokenString = tokenString
+                        tokenString = tokenString;
                     }
                     
                     if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "input" && hasAttributeWithValue(hInstance.getValue(), hInstance.getCursor(), "type", "file")) {
                         avaibleStrs.length = 0;
                         appendArrayToAnother(avaibleStrs, fileExtensions);
+                        appendArrayToAnother(avaibleStrs, FileSystem.readFileSync("HTMLMime.dat").toString().split("\n"));
                     }
 
                     avaibleStrs = filter(avaibleStrs, tokenString, true);
@@ -889,6 +1320,375 @@ $(document).ready(function() {
                     }
 
                     currentTokenType = "mime";
+
+                    displayAutocomplete(avaibleStrs, arrayTypes);
+                } else if(attributeName == "accept-charset") {
+                    let token = hInstance.getTokenAt(hInstance.getCursor());
+                    let tokenString  = token.string.slice(1, token.string.length - 1);
+                    
+                    if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "form") {
+                        avaibleStrs.length = 0;
+                        appendArrayToAnother(avaibleStrs, ["ASCII", "ANSI", "WIN-1252", "ISO-8859-1", "ISO-8859", "UTF-16", "UTF-8"]);
+                    }
+
+                    avaibleStrs = filter(avaibleStrs, tokenString, true);
+
+                    let arrayTypes = [];
+                    for(i = 0; i < avaibleStrs.length; i++) {
+                        arrayTypes[i] = "string";
+                    }
+
+                    currentTokenType = "string";
+
+                    displayAutocomplete(avaibleStrs, arrayTypes);
+                } else if(attributeName == "accesskey") {
+                    let token = hInstance.getTokenAt(hInstance.getCursor());
+                    let tokenString  = token.string.slice(1, token.string.length - 1);
+                    
+                    avaibleStrs.length = 0;
+                    appendArrayToAnother(avaibleStrs, keyboardKeys);
+
+                    avaibleStrs = filter(avaibleStrs, tokenString, true);
+                    
+                    let arrayTypes = [];
+                    for(i = 0; i < avaibleStrs.length; i++) {
+                        arrayTypes[i] = "string";
+                    }
+
+                    currentTokenType = "string";
+
+                    displayAutocomplete(avaibleStrs, arrayTypes);
+                } else if(attributeName == "autocomplete") {
+                    let token = hInstance.getTokenAt(hInstance.getCursor());
+                    let tokenString  = token.string.slice(1, token.string.length - 1);
+                    
+                    avaibleStrs.length = 0;
+                    if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "input" || extractTagName(hInstance.getValue(), hInstance.getCursor()) == "form") {
+                       appendArrayToAnother(avaibleStrs, ["on", "off", "true", "false"]);
+                    }
+
+                    avaibleStrs = filter(avaibleStrs, tokenString, true);
+                    
+                    let arrayTypes = [];
+                    for(i = 0; i < avaibleStrs.length; i++) {
+                        arrayTypes[i] = "boolean";
+                    }
+
+                    currentTokenType = "string";
+
+                    displayAutocomplete(avaibleStrs, arrayTypes);
+                } else if(attributeName == "charset") {
+                    let token = hInstance.getTokenAt(hInstance.getCursor());
+                    let tokenString  = token.string.slice(1, token.string.length - 1);
+                    
+                    if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "meta" || extractTagName(hInstance.getValue(), hInstance.getCursor()) == "script") {
+                        avaibleStrs.length = 0;
+                        appendArrayToAnother(avaibleStrs, ["ASCII", "ANSI", "WIN-1252", "ISO-8859-1", "ISO-8859", "UTF-16", "UTF-8"]);
+                    }
+
+                    avaibleStrs = filter(avaibleStrs, tokenString, true);
+
+                    let arrayTypes = [];
+                    for(i = 0; i < avaibleStrs.length; i++) {
+                        arrayTypes[i] = "string";
+                    }
+
+                    currentTokenType = "string";
+
+                    displayAutocomplete(avaibleStrs, arrayTypes);
+                } else if(attributeName == "class") {
+                    let token = hInstance.getTokenAt(hInstance.getCursor());
+                    let tokenString  = token.string.slice(1, token.string.length - 1);
+                    
+                    avaibleStrs = gatherAllLinkedStylesheets(hInstance.getValue(), hInstance.getCursor());
+
+                    avaibleStrs = filter(avaibleStrs, tokenString, true);
+
+                    let arrayTypes = [];
+                    for(i = 0; i < avaibleStrs.length; i++) {
+                        arrayTypes[i] = "string";
+                    }
+
+                    currentTokenType = "string";
+
+                    displayAutocomplete(avaibleStrs, arrayTypes);
+                } else if(attributeName == "contenteditable" || attributeName == "draggable") {
+                    let token = hInstance.getTokenAt(hInstance.getCursor());
+                    let tokenString  = token.string.slice(1, token.string.length - 1);
+                    
+                    avaibleStrs.length = 0;
+                    appendArrayToAnother(avaibleStrs, ["on", "off", "true", "false"]);
+
+                    avaibleStrs = filter(avaibleStrs, tokenString, true);
+                    
+                    let arrayTypes = [];
+                    for(i = 0; i < avaibleStrs.length; i++) {
+                        arrayTypes[i] = "boolean";
+                    }
+
+                    currentTokenType = "string";
+
+                    displayAutocomplete(avaibleStrs, arrayTypes);
+                } else if(attributeName == "dir") {
+                    let token = hInstance.getTokenAt(hInstance.getCursor());
+                    let tokenString  = token.string.slice(1, token.string.length - 1);
+                    
+                    avaibleStrs.length = 0;
+                    appendArrayToAnother(avaibleStrs, ["rtl", "ltr"]);
+
+                    avaibleStrs = filter(avaibleStrs, tokenString, true);
+
+                    let arrayTypes = [];
+                    for(i = 0; i < avaibleStrs.length; i++) {
+                        arrayTypes[i] = "string";
+                    }
+
+                    currentTokenType = "string";
+
+                    displayAutocomplete(avaibleStrs, arrayTypes);
+                } else if(attributeName == "dirname") {
+                    let token = hInstance.getTokenAt(hInstance.getCursor());
+                    let tokenString  = token.string.slice(1, token.string.length - 1);
+                    
+                    if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "input" && event.keyCode != 16 && event.keyCode != 38 && event.keyCode != 40 && event.keyCode != 39 && event.keyCode != 37 && event.keyCode != 17 && event.keyCode != 144 && event.keyCode != 93 && event.keyCode != 20 && event.keyCode != 27 && event.keyCode != 112 && event.keyCode != 45 && event.keyCode != 19 && event.keyCode != 112 && event.keyCode != 113 && event.keyCode != 114 && event.keyCode != 115 && event.keyCode != 116 && event.keyCode != 117 && event.keyCode != 118 && event.keyCode != 119 && event.keyCode != 120 && event.keyCode != 121 && event.keyCode != 122 && event.keyCode != 123 && extractNameAttribute(hInstance.getValue(), hInstance.getCursor()) != "empty" || extractTagName(hInstance.getValue(), hInstance.getCursor()) == "textarea" && event.keyCode != 16 && event.keyCode != 38 && event.keyCode != 40 && event.keyCode != 39 && event.keyCode != 37 && event.keyCode != 17 && event.keyCode != 144 && event.keyCode != 93 && event.keyCode != 20 && event.keyCode != 27 && event.keyCode != 112 && event.keyCode != 45 && event.keyCode != 19 && event.keyCode != 112 && event.keyCode != 113 && event.keyCode != 114 && event.keyCode != 115 && event.keyCode != 116 && event.keyCode != 117 && event.keyCode != 118 && event.keyCode != 119 && event.keyCode != 120 && event.keyCode != 121 && event.keyCode != 122 && event.keyCode != 123 && extractNameAttribute(hInstance.getValue(), hInstance.getCursor()) != "empty") {
+                        avaibleStrs = [];
+                        let extractedName = extractNameAttribute(hInstance.getValue(), hInstance.getCursor());
+                        hInstance.replaceRange(
+                            '"' + extractedName.split('"').join("").split("'").join("") + ".dir" + '"', {
+                                line: hInstance.getCursor().line, ch:token.start
+                            },
+                            {
+                                line:hInstance.getCursor().line , ch:token.end
+                            }
+                        );
+                    }
+                } else if(attributeName == "dropzone") {
+                    let token = hInstance.getTokenAt(hInstance.getCursor());
+                    let tokenString  = token.string.slice(1, token.string.length - 1);
+                    
+                    avaibleStrs.length = 0;
+                    appendArrayToAnother(avaibleStrs, ["copy", "move", "link"]);
+
+                    avaibleStrs = filter(avaibleStrs, tokenString, true);
+
+                    let arrayTypes = [];
+                    for(i = 0; i < avaibleStrs.length; i++) {
+                        arrayTypes[i] = "string";
+                    }
+
+                    currentTokenType = "string";
+
+                    displayAutocomplete(avaibleStrs, arrayTypes);
+                } else if(attributeName == "enctype") {
+                    let token = hInstance.getTokenAt(hInstance.getCursor());
+                    let tokenString  = token.string.slice(1, token.string.length - 1);
+                    
+                    if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "form" && hasAttributeWithValue(hInstance.getValue(), hInstance.getCursor(), "method", "post")) {
+                        avaibleStrs.length = 0;
+                        appendArrayToAnother(avaibleStrs, FileSystem.readFileSync("HTMLMime.dat").toString().split("\n"));
+                    }
+
+                    avaibleStrs = filter(avaibleStrs, tokenString, true);
+
+                    let arrayTypes = [];
+                    for(i = 0; i < avaibleStrs.length; i++) {
+                        arrayTypes[i] = "string";
+                    }
+
+                    currentTokenType = "mime";
+
+                    displayAutocomplete(avaibleStrs, arrayTypes);
+                } else if(attributeName == "for") {
+                    let token = hInstance.getTokenAt(hInstance.getCursor());
+                    let tokenString  = token.string.slice(1, token.string.length - 1);
+                    
+                    if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "label" || extractTagName(hInstance.getValue(), hInstance.getCursor()) == "output") {
+                        avaibleStrs.length = 0;
+                        let allIDs = gatherAllIDs(hInstance.getValue());
+                        for(i = 0; i < allIDs.length; i++) {
+                            allIDs[i] = allIDs[i].replace(/^#/, "");
+                        }
+                        appendArrayToAnother(avaibleStrs, allIDs);
+                    }
+
+                    avaibleStrs = filter(avaibleStrs, tokenString, true);
+
+                    let arrayTypes = [];
+                    for(i = 0; i < avaibleStrs.length; i++) {
+                        arrayTypes[i] = "section";
+                    }
+
+                    currentTokenType = "string";
+
+                    displayAutocomplete(avaibleStrs, arrayTypes);
+                } else if(attributeName == "form") {
+                    let token = hInstance.getTokenAt(hInstance.getCursor());
+                    let tokenString  = token.string.slice(1, token.string.length - 1);
+                    
+                    if(extractTagName(hInstance.getValue(), hInstance.getCursor() == "button") || extractTagName(hInstance.getValue(), hInstance.getCursor() == "fieldset") || extractTagName(hInstance.getValue(), hInstance.getCursor() == "input") || extractTagName(hInstance.getValue(), hInstance.getCursor() == "label") || extractTagName(hInstance.getValue(), hInstance.getCursor() == "meter") || extractTagName(hInstance.getValue(), hInstance.getCursor() == "object") || extractTagName(hInstance.getValue(), hInstance.getCursor() == "output") || extractTagName(hInstance.getValue(), hInstance.getCursor() == "select") || extractTagName(hInstance.getValue(), hInstance.getCursor() == "textarea")) {
+                        avaibleStrs.length = 0;
+                        let allNames = gatherAllFormNames(hInstance.getValue());
+                        appendArrayToAnother(avaibleStrs, allNames);
+                    }
+
+                    avaibleStrs = filter(avaibleStrs, tokenString, true);
+
+                    let arrayTypes = [];
+                    for(i = 0; i < avaibleStrs.length; i++) {
+                        arrayTypes[i] = "string";
+                    }
+
+                    currentTokenType = "string";
+
+                    displayAutocomplete(avaibleStrs, arrayTypes);
+                } else if(attributeName == "headers") {
+                    let token = hInstance.getTokenAt(hInstance.getCursor());
+                    let tokenString  = token.string.slice(1, token.string.length - 1);
+                    
+                    if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "td" || extractTagName(hInstance.getValue(), hInstance.getCursor()) == "th") {
+                        avaibleStrs.length = 0;
+                        let allIDs = gatherAllIDs(hInstance.getValue());
+                        for(i = 0; i < allIDs.length; i++) {
+                            allIDs[i] = allIDs[i].replace(/^#/, "");
+                        }
+                        appendArrayToAnother(avaibleStrs, allIDs);
+                    }
+
+                    avaibleStrs = filter(avaibleStrs, tokenString, true);
+
+                    let arrayTypes = [];
+                    for(i = 0; i < avaibleStrs.length; i++) {
+                        arrayTypes[i] = "section";
+                    }
+
+                    currentTokenType = "string";
+
+                    displayAutocomplete(avaibleStrs, arrayTypes);
+                } else if(attributeName == "hreflang") {
+                    let token = hInstance.getTokenAt(hInstance.getCursor());
+                    let tokenString  = token.string.slice(1, token.string.length - 1);
+                    
+                    if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "a" || extractTagName(hInstance.getValue(), hInstance.getCursor()) == "area" || extractTagName(hInstance.getValue(), hInstance.getCursor()) == "link") {
+                        avaibleStrs.length = 0;
+                        avaibleStrs = langs;
+                    }
+
+                    avaibleStrs = filter(avaibleStrs, tokenString, true);
+
+                    let arrayTypes = [];
+                    for(i = 0; i < avaibleStrs.length; i++) {
+                        arrayTypes[i] = "string";
+                    }
+
+                    currentTokenType = "string";
+
+                    displayAutocomplete(avaibleStrs, arrayTypes);
+                } else if(attributeName == "http-equiv") {
+                    let token = hInstance.getTokenAt(hInstance.getCursor());
+                    let tokenString  = token.string.slice(1, token.string.length - 1);
+                    
+                    if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "meta") {
+                        avaibleStrs.length = 0;
+                        avaibleStrs = ["content-security-policy", "content-type", "default-title", "x-ua-compatible", "refresh"];
+                    }
+
+                    avaibleStrs = filter(avaibleStrs, tokenString, true);
+
+                    let arrayTypes = [];
+                    for(i = 0; i < avaibleStrs.length; i++) {
+                        arrayTypes[i] = "string";
+                    }
+
+                    currentTokenType = "string";
+
+                    displayAutocomplete(avaibleStrs, arrayTypes);
+                } else if(attributeName == "content") {
+                    let token = hInstance.getTokenAt(hInstance.getCursor());
+                    let tokenString  = token.string.slice(1, token.string.length - 1);
+                    
+                    if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "meta" && hasAttributeWithValue(hInstance.getValue(), hInstance.getCursor(), "http-equiv", "content-type") && event.keyCode != 16 && event.keyCode != 38 && event.keyCode != 40 && event.keyCode != 39 && event.keyCode != 37 && event.keyCode != 17 && event.keyCode != 144 && event.keyCode != 93 && event.keyCode != 20 && event.keyCode != 27 && event.keyCode != 112 && event.keyCode != 45 && event.keyCode != 19 && event.keyCode != 112 && event.keyCode != 113 && event.keyCode != 114 && event.keyCode != 115 && event.keyCode != 116 && event.keyCode != 117 && event.keyCode != 118 && event.keyCode != 119 && event.keyCode != 120 && event.keyCode != 121 && event.keyCode != 122) {
+                        avaibleStrs = [];
+                        hInstance.replaceRange(
+                            '"text/html; charset=utf-8"', {
+                                line: hInstance.getCursor().line, ch:token.start
+                            },
+                            {
+                                line:hInstance.getCursor().line , ch:token.end
+                            }
+                        );
+                    }
+                } else if(attributeName == "kind") {
+                    let token = hInstance.getTokenAt(hInstance.getCursor());
+                    let tokenString  = token.string.slice(1, token.string.length - 1);
+                    
+                    if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "track") {
+                        avaibleStrs.length = 0;
+                        avaibleStrs = ["subtitles", "captions", "descriptions", "chapters", "metadata"];
+                    }
+
+                    avaibleStrs = filter(avaibleStrs, tokenString, true);
+
+                    let arrayTypes = [];
+                    for(i = 0; i < avaibleStrs.length; i++) {
+                        arrayTypes[i] = "string";
+                    }
+
+                    currentTokenType = "string";
+
+                    displayAutocomplete(avaibleStrs, arrayTypes);
+                } else if(attributeName == "lang") {
+                    let token = hInstance.getTokenAt(hInstance.getCursor());
+                    let tokenString  = token.string.slice(1, token.string.length - 1);
+                    
+                    avaibleStrs.length = 0;
+                    avaibleStrs = langs;
+
+                    avaibleStrs = filter(avaibleStrs, tokenString, true);
+
+                    let arrayTypes = [];
+                    for(i = 0; i < avaibleStrs.length; i++) {
+                        arrayTypes[i] = "string";
+                    }
+
+                    currentTokenType = "string";
+
+                    displayAutocomplete(avaibleStrs, arrayTypes);
+                } else if(attributeName == "list") {
+                    let token = hInstance.getTokenAt(hInstance.getCursor());
+                    let tokenString  = token.string.slice(1, token.string.length - 1);
+                    
+                    if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "input") {
+                        avaibleStrs.length = 0;
+                        avaibleStrs = gatherAllDatalistIDs(hInstance.getValue());
+                    }
+
+                    avaibleStrs = filter(avaibleStrs, tokenString, true);
+
+                    let arrayTypes = [];
+                    for(i = 0; i < avaibleStrs.length; i++) {
+                        arrayTypes[i] = "string";
+                    }
+
+                    currentTokenType = "string";
+
+                    displayAutocomplete(avaibleStrs, arrayTypes);
+                } else if(attributeName == "method") {
+                    let token = hInstance.getTokenAt(hInstance.getCursor());
+                    let tokenString  = token.string.slice(1, token.string.length - 1);
+                    
+                    if(extractTagName(hInstance.getValue(), hInstance.getCursor()) == "form") {
+                        avaibleStrs.length = 0;
+                        avaibleStrs = ["get", "post"];
+                    }
+
+                    avaibleStrs = filter(avaibleStrs, tokenString, true);
+
+                    let arrayTypes = [];
+                    for(i = 0; i < avaibleStrs.length; i++) {
+                        arrayTypes[i] = "string";
+                    }
+
+                    currentTokenType = "string";
 
                     displayAutocomplete(avaibleStrs, arrayTypes);
                 }
@@ -1152,7 +1952,12 @@ $(document).ready(function() {
     });
     
     document.onclick = function(event) {
-        let clickedElement   = event.target;
+        let clickedElement = event.target;
+        if(bContextMenu) {
+            $("#_contextmenu").css("display", "none");
+            bContextMenu = false;
+        }
+        
         if(clickedElement.className == "span" || clickedElement.className == "item") {
             let nodeList = document.getElementsByClassName("item");
             for(i = 0; i < nodeList.length; i++) {
