@@ -12,6 +12,9 @@
         <script src="htmlAtts.js" type="text/javascript"></script>
         <script src="htmlAscii.js" type="text/javascript"></script>
         <script src="jsKeywords.js" type="text/javascript"></script>
+        <script src="langs.js" type="text/javascript"></script>
+        <script src="keyboard.js" type="text/javascript"></script>
+        <script src="files-extensions.js" type="text/javascript"></script>
         <link rel="stylesheet" href="CodeMirror/lib/codemirror.css" />
         <link rel="stylesheet" href="CodeMirror/addon/hint/show-hint.css">
         <script src="CodeMirror/lib/codemirror.js"></script>
@@ -33,6 +36,7 @@
         <style>
             @import url('https://fonts.googleapis.com/css2?family=Fira+Code&display=swap');
             @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@100&display=swap');
+            
             .CodeMirror-scroll {
                 background-color: #f5f5f5;
             }
@@ -94,6 +98,18 @@
     </head>
     <body>
         <div id="_list" class="autocomplete-wrapper"></div>
+        <div class="context-menu" id="_contextmenu">
+            <div class="context-menu-wrapper">
+                <div class="context-menu-item" onclick="javascript:myCodeMirror.undo();">Undo<p style="float: right; padding-right: 5px;">Ctrl+Z</p></div>
+                <div class="context-menu-item" onclick="javascript:myCodeMirror.redo();">Redo<p style="float: right; padding-right: 5px; position: absolute; right: 0px; top: 30px;">Ctrl+Y</p></div>
+                <div class="context-menu-item" onclick="javascript:document.execCommand('copy');">Copy<p style="float: right; padding-right: 5px; position: absolute; right: 0px; top: 60px;">Ctrl+C</p></div>
+                <div class="context-menu-item" onclick="javascript:document.execCommand('cut');">Cut<p style="float: right; padding-right: 5px; position: absolute; right: 0px; top: 90px;">Ctrl+X</p></div>
+                <div class="context-menu-item" onclick="javascript:document.execCommand('paste');">Paste<p style="float: right; padding-right: 5px; position: absolute; right: 0px; top: 120px;">Ctrl+V</p></div>
+                <hr>
+                <div class="context-menu-item" onclick="javascript:document.execCommand('selectall');">Select all<p style="float: right; padding-right: 5px; position: absolute; right: 0px; top: 182px;">Ctrl+A</p></div>
+                <div class="context-menu-item" onclick="javascript:document.execCommand('print');">Print<p style="float: right; padding-right: 5px; position: absolute; right: 0px; top: 215px;">Ctrl+P</p></div>
+            </div>
+        </div>
         <form><textarea id="editor" name="editor"></textarea></form>
         <script>
             var myCodeMirror = CodeMirror.fromTextArea(document.getElementById("editor"), {
